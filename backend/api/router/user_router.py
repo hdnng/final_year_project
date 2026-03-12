@@ -5,6 +5,7 @@ import schemas.schemas as schemas
 import crud.user_crud as user_crud
 from database.database import SessionLocal
 from core.security import verify_password
+from core.auth import create_access_token
 
 router = APIRouter()
 
@@ -32,5 +33,12 @@ def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
 
     if not verify_password(user.password, db_user.password):
         return {"error": "Wrong password"}
+    
+    token = create_access_token(
+        data={"user_Id": db_user.userId}
+    )
 
-    return {"message": "Login success"}
+    return {
+        "access_token": token,
+        "token_type": "bearer"
+    }
