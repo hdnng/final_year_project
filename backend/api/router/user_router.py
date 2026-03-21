@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 import schemas.schemas as schemas
 import crud.user_crud as user_crud
 from database.database import SessionLocal
-from core.security import verify_password
+from core.security import hash_password, verify_password
 from core.auth import create_access_token
+from core.dependencies import get_current_user
+from models.user import User
 
 router = APIRouter()
 
@@ -42,3 +44,52 @@ def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
         "access_token": token,
         "token_type": "bearer"
     }
+
+@router.get("/profile")
+def get_profile(
+    user_id: int = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    
+    user = user_crud.get_user_by_id(db, user_id)
+
+    return {
+        "name": user.name,
+        "email": user.email
+    }
+
+
+@router.put("/update")
+def update_user(
+    data: schemas.UserUpdate,
+    user_id: int = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+
+    user = db.query(User).filter(User.userId == user_id).first()
+
+    user.name = data.name
+    user.email = data.email
+
+    db.commit()
+
+    return {"message": "updated"}
+
+
+@router.put("/change-password")
+def change_password(
+    data: schemas.ChangePassword,
+    user_id: int = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.userId == user_id).first()
+
+    # kiểm tra mật khẩu cũ
+    if not verify_password(data.old_password, user.password):
+        raise HTTPException(status_code=400, detail="Sai mật khẩu cũ")
+
+    # cập nhật mật khẩu mới
+    user.password = hash_password(data.new_password)
+    db.commit()
+
+    return {"message": "Đổi mật khẩu thành công"}

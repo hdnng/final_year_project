@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Giám sát AI</title>
+
+    <link rel="stylesheet" href="/frontend/css/monitor.css">
+    <link rel="stylesheet" href="/frontend/css/sidebar.css">
+
+</head>
+
+<body>
+
+    <div class="layout">
+
+        <!-- SIDEBAR -->
+
+        <div class="sidebar" id="sidebar">
+        </div>
+        <script>
+            async function loadSidebar() {
+
+                const res = await fetch("/frontend/layout/sidebar.html")
+                const html = await res.text()
+
+                document.getElementById("sidebar").innerHTML = html
+            }
+
+            loadSidebar()
+        </script>
+
+
+        <!-- MAIN -->
+
+        <div class="main">
+
+            <h2>Giám sát thời gian thực</h2>
+
+
+            <div class="top-bar">
+
+                <select>
+                    <option>Lớp 10A1 - Phòng 201</option>
+                </select>
+
+                <button class="start">Bắt đầu phân tích</button>
+                <button class="stop">Dừng phân tích</button>
+
+            </div>
+
+
+            <div class="content">
+
+                <!-- CAMERA -->
+
+                <div class="camera-box">
+
+                    <img id="cameraFrame" src="placeholder.jpg">
+
+                    <div class="rec">
+                        REC ●
+                    </div>
+
+                </div>
+
+
+                <!-- FRAME LIST -->
+
+                <div class="frame-list">
+
+                    <h3>Khung hình trích xuất</h3>
+
+                    <div id="frames">
+
+                    </div>
+
+                    <button class="view-all">
+                        Xem tất cả
+                    </button>
+
+                </div>
+
+
+            </div>
+
+
+            <div class="progress">
+
+                <div class="bar"></div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <script src="monitor.js"></script>
+
+</body>
+
+</html>

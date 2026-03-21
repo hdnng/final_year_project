@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+<meta charset="UTF-8">
+<title>Cài đặt tài khoản</title>
+
+<link rel="stylesheet" href="/frontend/css/sidebar.css">
+<link rel="stylesheet" href="/frontend/css/setting.css">
+
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+
+<body>
+
+<div class="app">
+
+    <!-- SIDEBAR -->
+    <div id="sidebar"></div>
+
+    <!-- MAIN -->
+    <div class="main">
+
+        <h1>Cài đặt tài khoản</h1>
+        <p class="subtitle">
+            Quản lý thông tin cá nhân và thiết lập bảo mật của bạn.
+        </p>
+
+        <!-- ACCOUNT INFO -->
+        <div class="card">
+
+            <h3>Thông tin tài khoản</h3>
+
+            <div class="profile">
+
+                <img src="../images/avatar.png" class="avatar">
+
+                <div class="profile-info">
+                    <h4 id="profileName">Loading...</h4>
+                    <span id="profileEmail">Loading...</span>
+
+                    <button class="btn-small">
+                        Thay đổi ảnh
+                    </button>
+                </div>
+
+            </div>
+
+            <div class="form-row">
+
+                <div class="input-group">
+                    <label>Họ và Tên</label>
+                    <input id="nameInput" type="text">
+                </div>
+
+                <div class="input-group">
+                    <label>Email</label>
+                    <input id="emailInput" type="email">
+                </div>
+
+            </div>
+
+            <div class="save">
+                <button id="saveBtn" class="btn-primary">
+                    Lưu thay đổi
+                </button>
+            </div>
+
+        </div>
+
+        <!-- SECURITY -->
+        <div class="card">
+
+            <h3>Bảo mật</h3>
+
+            <div class="security">
+
+                <div class="security-left">
+                    <i class="fa-solid fa-lock"></i>
+
+                    <div>
+                        <b>Đổi mật khẩu</b>
+                        <p>Cập nhật mật khẩu để bảo vệ tài khoản tốt hơn</p>
+                    </div>
+                </div>
+
+                <button class="btn-outline">
+                    Thay đổi
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script src="./js/setting.js"></script>
+
+</body>
+</html>

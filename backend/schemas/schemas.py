@@ -19,3 +19,12 @@ class User(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class UserUpdate(BaseModel):
+    name: str
+    email: str
+
+class ChangePassword(BaseModel):
+    old_password: str
+    new_password: str

@@ -1,0 +1,124 @@
+import streamlit as st
+from components.app_sidebar import render_sidebar
+from utils.load_css import load_css
+from services.user_api import change_password, update_user, get_user
+
+# ===== CONFIG =====
+st.set_page_config(layout="wide")
+
+# ===== AUTH CHECK =====
+if "token" not in st.session_state:
+    st.switch_page("pages/login.py")
+
+# ===== SIDEBAR =====
+render_sidebar(active="setting")
+
+# ===== LOAD CSS =====
+st.markdown(load_css("styles/setting.css"), unsafe_allow_html=True)
+
+# ===== LOAD USER DATA =====
+token = st.session_state.get("token")
+user = get_user(token)
+
+name_default = user["name"] if user else ""
+email_default = user["email"] if user else ""
+
+# ===== SUCCESS MESSAGE =====
+if st.session_state.get("update_success"):
+    st.success("✅ Cập nhật thành công!")
+    st.session_state.update_success = False
+
+# ===== UI =====
+st.title("⚙️ Cài đặt tài khoản")
+st.caption("Quản lý thông tin cá nhân và thiết lập bảo mật của bạn.")
+
+st.divider()
+
+# ===== ACCOUNT INFO =====
+st.subheader("Thông tin tài khoản")
+
+col1, col2 = st.columns([1, 3])
+
+with col1:
+    st.image("https://i.pravatar.cc/100")
+
+with col2:
+    st.write(f"**{name_default}**")
+    st.caption(email_default)
+
+# ===== FORM UPDATE USER =====
+st.subheader("Chỉnh sửa thông tin")
+
+with st.form("update_user_form"):
+    col1, col2 = st.columns(2)
+
+    with col1:
+        name = st.text_input("Họ và tên", value=name_default)
+
+    with col2:
+        email = st.text_input("Email", value=email_default)
+
+    submitted = st.form_submit_button("💾 Lưu thay đổi", use_container_width=True)
+
+    if submitted:
+        if not name or not email:
+            st.warning("⚠️ Vui lòng nhập đầy đủ thông tin")
+        else:
+            success, res = update_user(name, email, token)
+
+            if success:
+                st.session_state.update_success = True
+                st.rerun()
+            else:
+                st.error(f"❌ Lỗi: {res}")
+
+st.divider()
+
+# ===== SECURITY =====
+st.subheader("🔒 Bảo mật")
+
+with st.expander("Đổi mật khẩu"):
+
+    with st.form("change_password_form"):
+
+        # ===== TOGGLE SHOW PASSWORD =====
+        show_pass = st.checkbox("Hiển thị mật khẩu")
+        password_type = "text" if show_pass else "password"
+
+        # ===== INPUT =====
+        old_password = st.text_input("Mật khẩu cũ", type=password_type)
+        new_password = st.text_input("Mật khẩu mới", type=password_type)
+        confirm_password = st.text_input("Xác nhận mật khẩu", type=password_type)
+
+        # ===== PASSWORD STRENGTH =====
+        if new_password:
+            if len(new_password) < 6:
+                st.error("🔴 Mật khẩu yếu")
+            elif len(new_password) < 10:
+                st.warning("🟡 Mật khẩu trung bình")
+            else:
+                st.success("🟢 Mật khẩu mạnh")
+
+        # ===== SUBMIT =====
+        submitted_pass = st.form_submit_button("Cập nhật mật khẩu", use_container_width=True)
+
+        if submitted_pass:
+
+            if not old_password or not new_password or not confirm_password:
+                st.warning("⚠️ Vui lòng nhập đầy đủ thông tin")
+
+            elif new_password != confirm_password:
+                st.error("❌ Mật khẩu xác nhận không khớp")
+
+            elif len(new_password) < 6:
+                st.warning("⚠️ Mật khẩu phải ít nhất 6 ký tự")
+
+            else:
+                with st.spinner("Đang cập nhật mật khẩu..."):
+                    success, res = change_password(old_password, new_password, token)
+
+                if success:
+                    st.toast("✅ Đổi mật khẩu thành công!")
+                    st.rerun()
+                else:
+                    st.error(f"❌ {res}")
