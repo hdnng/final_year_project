@@ -25,25 +25,33 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     return user_crud.create_user(db, user)
 
 
+from fastapi import Response
+
 @router.post("/login")
-def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
+def login(user: schemas.UserLogin, response: Response, db: Session = Depends(get_db)):
 
     db_user = user_crud.get_user_by_email(db, user.email)
 
     if not db_user:
-        return {"error": "User not found"}
+        raise HTTPException(status_code=401, detail="User not found")
 
     if not verify_password(user.password, db_user.password):
-        return {"error": "Wrong password"}
+        raise HTTPException(status_code=401, detail="Wrong password")
     
     token = create_access_token(
-        data={"user_Id": db_user.userId}
+        data={"user_id": db_user.user_id}
     )
 
-    return {
-        "access_token": token,
-        "token_type": "bearer"
-    }
+    # SET COOKIE
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        secure=False,  # True nếu deploy HTTPS
+        samesite="lax"
+    )
+
+    return {"message": "Login thành công"}
 
 @router.get("/profile")
 def get_profile(
@@ -54,7 +62,7 @@ def get_profile(
     user = user_crud.get_user_by_id(db, user_id)
 
     return {
-        "name": user.name,
+        "name": user.full_name,
         "email": user.email
     }
 
@@ -66,9 +74,9 @@ def update_user(
     db: Session = Depends(get_db)
 ):
 
-    user = db.query(User).filter(User.userId == user_id).first()
+    user = db.query(User).filter(User.user_id == user_id).first()
 
-    user.name = data.name
+    user.full_name = data.full_name
     user.email = data.email
 
     db.commit()
@@ -82,7 +90,7 @@ def change_password(
     user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    user = db.query(User).filter(User.userId == user_id).first()
+    user = db.query(User).filter(User.user_id == user_id).first()
 
     # kiểm tra mật khẩu cũ
     if not verify_password(data.old_password, user.password):

@@ -2,15 +2,18 @@ import requests
 
 API_URL = "http://127.0.0.1:8000"
 
-def login(email, password):
-    return requests.post(f"{API_URL}/login", json={
-        "email": email,
-        "password": password
-    })
+def login(session, email, password):
+    return session.post(
+        f"{API_URL}/login",
+        json={
+            "email": email,
+            "password": password
+        }
+    )
 
-def register(name, email, password):
+def register(full_name, email, password):
     return requests.post(f"{API_URL}/register", json={
-        "name": name,
         "email": email,
-        "password": password
+        "password": password,
+        "full_name": full_name
     })

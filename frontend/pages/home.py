@@ -3,8 +3,11 @@ import requests
 import os
 from PIL import Image
 from pathlib import Path
-
+from  streamlit_autorefresh import st_autorefresh
 st.set_page_config(layout="wide")
+
+if "running" not in st.session_state:
+    st.session_state["running"] = False
 
 API_URL = "http://127.0.0.1:8000/camera"
 
@@ -24,28 +27,75 @@ st.markdown("## 📹 Giám sát thời gian thực")
 
 # ===== CONTROL =====
 col_top1, col_top2, col_top3 = st.columns([2,1,1])
-
+ 
+# 🔥 nhập mã lớp
 with col_top1:
-    st.selectbox("Chọn lớp học", ["Lớp 10A1 - Phòng 201"])
+    class_id = st.text_input("Nhập mã lớp", placeholder="VD: 10A1")
 
+    if not class_id.strip():
+        st.info("👉 Vui lòng nhập mã lớp để bắt đầu")
+
+# ===== lấy camera =====
+try:
+    cams = requests.get(f"{API_URL}/list").json()["cameras"]
+except Exception as e:
+    st.error(f"Không lấy được camera: {e}")
+    cams = []
+
+if len(cams) > 0:
+    selected_cam = st.selectbox(
+        "Chọn camera",
+        cams,
+        format_func=lambda x: x["name"]   # 🔥 hiển thị tên thật
+    )
+
+    camera_index = selected_cam["index"]  # 🔥 lấy index đúng
+else:
+    st.warning("Không có camera nào")
+    camera_index = None
+
+
+# ===== BUTTON CONTROL =====
 with col_top2:
-    if st.button("🟢 Bắt đầu phân tích"):
-        try:
-            res = requests.post(f"{API_URL}/start")
-            st.success(res.json()["message"])
-            st.session_state["running"] = True
-        except:
-            st.error("Không gọi được API")
+    if not st.session_state["running"]:
+        start_disabled = (not class_id.strip()) or (camera_index is None)
+
+        if st.button("🟢 Bắt đầu phân tích", disabled=start_disabled):
+            try:
+                res = requests.post(
+                    f"{API_URL}/start",
+                    params={
+                        "camera_index": camera_index,
+                        "class_id": class_id.strip()
+                    }
+                )
+
+                data = res.json()
+
+                st.success(data.get("message", "Đã bắt đầu"))
+
+                st.session_state["running"] = True
+                st.session_state["session_id"] = data.get("session_id")
+
+                st.rerun()  # 🔥 cập nhật UI ngay
+
+            except Exception as e:
+                st.error(f"Lỗi khi gọi API: {e}")
 
 with col_top3:
-    if st.button("🔴 Dừng phân tích"):
-        try:
-            res = requests.post(f"{API_URL}/stop")
-            st.warning(res.json()["message"])
-            st.session_state["running"] = False
-        except:
-            st.error("Không gọi được API")
+    if st.session_state["running"]:
+        if st.button("🔴 Dừng phân tích"):
+            try:
+                res = requests.post(f"{API_URL}/stop")
 
+                st.warning(res.json().get("message", "Đã dừng"))
+
+                st.session_state["running"] = False
+
+                st.rerun()  # 🔥 cập nhật UI
+
+            except Exception as e:
+                st.error(f"Lỗi khi stop: {e}")
 # ===== MAIN LAYOUT =====
 left_col, right_col = st.columns([3,1])
 
@@ -62,25 +112,28 @@ with left_col:
 with right_col:
     st.markdown("### 📸 Ảnh chụp mỗi 30s")
 
-    BASE_DIR = Path(__file__).resolve().parents[2]  # về project_root
-    image_folder = BASE_DIR / "images"
+    if st.session_state.get("running") and st.session_state.get("session_id"):
+        try:
+            res = requests.get(
+                f"{API_URL}/frames/{st.session_state['session_id']}"
+            )
 
-    if os.path.exists(image_folder):
-        images = sorted(os.listdir(image_folder), reverse=True)
+            frames = res.json()
 
-        if len(images) == 0:
-            st.info("Chưa có ảnh")
-        else:
-            for img_name in images[:6]:
-                img_path = os.path.join(image_folder, img_name)
+            if len(frames) == 0:
+                st.info("Chưa có ảnh")
+            else:
+                for frame in frames[:6]:
+                    img_path = frame["image_path"]
 
-                try:
-                    img = Image.open(img_path)
-                    st.image(img, use_container_width=True)
-                    st.caption(img_name)
-                except:
-                    pass
+                    st.image(img_path, use_container_width=True)
+                    st.caption(frame["extracted_at"])
+
+        except Exception as e:
+            st.error(f"Lỗi load ảnh: {e}")
+    else:
+        st.info("Chưa bắt đầu session")
 
 # ===== AUTO REFRESH =====
 if st.session_state.get("running", False):
-    st.rerun()
+    st_autorefresh(interval=30000, key="refresh") #30s

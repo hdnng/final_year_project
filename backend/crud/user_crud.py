@@ -9,7 +9,7 @@ def create_user(db: Session, user_data: schemas.UserCreate):
     hashed_password = hash_password(user_data.password)
 
     db_user = user.User(
-        name = user_data.name,
+        full_name = user_data.full_name,
         email = user_data.email,
         password = hashed_password
     )
@@ -30,5 +30,5 @@ def get_user_by_email(db: Session, email: str):
 def get_user_by_id(db: Session, user_id: int):
 
     return db.query(user.User).filter(
-        user.User.userId == user_id
+        user.User.user_id == user_id
     ).first()

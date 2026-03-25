@@ -1,9 +1,14 @@
-import streamlit as st
+import streamlit as st 
 from services.auth_api import login
+import requests
 
 # ===== CONFIG =====
 st.set_page_config(layout="centered", initial_sidebar_state="collapsed")
 
+# ===== INIT CLIENT =====
+if "client" not in st.session_state:
+    st.session_state.client = requests.Session()
+    
 # ẩn sidebar
 st.markdown("""
 <style>
@@ -17,11 +22,14 @@ email = st.text_input("Email")
 password = st.text_input("Mật khẩu", type="password")
 
 if st.button("Đăng nhập"):
-    res = login(email, password)
-    data = res.json()
+    st.write("👉 BUTTON CLICKED")
 
-    if "access_token" in data:
-        st.session_state["token"] = data["access_token"]
+    res = login(st.session_state.client, email, password)
+
+    st.write("STATUS:", res.status_code)
+    st.write("RESPONSE:", res.text)
+
+    if res.status_code == 200:
         st.success("Login thành công")
         st.switch_page("pages/home.py")
     else:
@@ -30,3 +38,13 @@ if st.button("Đăng nhập"):
 st.write("Chưa có tài khoản?")
 if st.button("Đăng ký"):
     st.switch_page("pages/register.py")
+
+
+res = login(st.session_state.client, email, password)
+
+st.write("LOGIN:", res.status_code)
+
+res2 = st.session_state.client.get("http://127.0.0.1:8000/profile")
+
+st.write("PROFILE:", res2.status_code)
+st.write("PROFILE TEXT:", res2.text)

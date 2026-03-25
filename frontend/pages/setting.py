@@ -2,13 +2,13 @@ import streamlit as st
 from components.app_sidebar import render_sidebar
 from utils.load_css import load_css
 from services.user_api import change_password, update_user, get_user
+from utils.auth_guard import require_auth
 
 # ===== CONFIG =====
 st.set_page_config(layout="wide")
 
 # ===== AUTH CHECK =====
-if "token" not in st.session_state:
-    st.switch_page("pages/login.py")
+require_auth()
 
 # ===== SIDEBAR =====
 render_sidebar(active="setting")
@@ -17,8 +17,8 @@ render_sidebar(active="setting")
 st.markdown(load_css("styles/setting.css"), unsafe_allow_html=True)
 
 # ===== LOAD USER DATA =====
-token = st.session_state.get("token")
-user = get_user(token)
+client = st.session_state.client
+user = get_user(client)
 
 name_default = user["name"] if user else ""
 email_default = user["email"] if user else ""
@@ -64,7 +64,7 @@ with st.form("update_user_form"):
         if not name or not email:
             st.warning("⚠️ Vui lòng nhập đầy đủ thông tin")
         else:
-            success, res = update_user(name, email, token)
+            success, res = update_user(client, name, email)
 
             if success:
                 st.session_state.update_success = True
@@ -115,7 +115,7 @@ with st.expander("Đổi mật khẩu"):
 
             else:
                 with st.spinner("Đang cập nhật mật khẩu..."):
-                    success, res = change_password(old_password, new_password, token)
+                    success, res = change_password(client, old_password, new_password)
 
                 if success:
                     st.toast("✅ Đổi mật khẩu thành công!")

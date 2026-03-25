@@ -1,12 +1,15 @@
-from sqlalchemy import Column, Integer, String, TIMESTAMP
-from sqlalchemy.sql import func
+from sqlalchemy import Column, Integer, String
+from sqlalchemy.orm import relationship
 from database.database import Base
 
 class User(Base):
     __tablename__ = "users"
 
-    userId = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True)
-    name = Column(String)
+    full_name = Column(String)
     password = Column(String)
-    role = Column(String, default="student")
+    role = Column(String, default="teacher")
+
+    # relationship
+    sessions = relationship("Session", back_populates="user")

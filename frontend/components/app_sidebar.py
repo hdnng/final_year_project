@@ -24,5 +24,10 @@ def render_sidebar(active=None):
         st.divider()
 
         if st.button("🚪 Đăng xuất", use_container_width=True):
+            try:
+                st.session_state.client.post("http://127.0.0.1:8000/logout")
+            except:
+                pass  # tránh crash nếu API lỗi
+
             st.session_state.clear()
             st.switch_page("pages/login.py")
