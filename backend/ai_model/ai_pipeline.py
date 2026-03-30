@@ -1,73 +1,101 @@
-import torch
+import os
 import cv2
-
-from torchvision import transforms
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras.models import load_model
 from ultralytics import YOLO
+from pathlib import Path
+import time
 
-from ai_model.cnn_model import BehaviorCNN
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-# ===== LOAD YOLO =====
-yolo_model = YOLO("yolov8n.pt")  # nhẹ, realtime tốt
+# ===== PATH =====
+AI_MODEL_DIR = Path(__file__).resolve().parent
+MODEL_PATH = AI_MODEL_DIR / "weights" / "behavior_model_v2.keras"
+YOLO_PATH = AI_MODEL_DIR / "weights" / "yolov8n.pt"
 
-# ===== LOAD CNN =====
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"--- Loading AI Models from: {AI_MODEL_DIR} ---")
 
-cnn_model = BehaviorCNN(num_labels=2)
-cnn_model.load_state_dict(torch.load("ai_model/best_model.pth", map_location=device))
-cnn_model.to(device)
-cnn_model.eval()
+cnn_model = load_model(str(MODEL_PATH)) if MODEL_PATH.exists() else None
+yolo_model = YOLO(str(YOLO_PATH))
 
-# ===== TRANSFORM =====
-transform = transforms.Compose([
-    transforms.ToPILImage(),
-    transforms.Resize((224, 224)),
-    transforms.ToTensor()
-])
-
-# ===== LABEL MAP =====
+# ===== CONFIG =====
 LABELS = ["Normal", "Sleeping"]
+IMG_SIZE = 224
 
+# ===== CACHE =====
+last_box = None
+last_detect_time = 0
+last_label = "Normal"
 
-def process_frame(frame):
-    results = yolo_model(frame)[0]
+def process_frame(frame, frame_count):
+    global last_box, last_detect_time, last_label
 
-    for box in results.boxes:
-        cls = int(box.cls[0])
+    results_data = []   # 👈 thêm dòng này
 
-        # 🔥 chỉ lấy người (class 0 = person)
-        if cls != 0:
+    if cnn_model is None:
+        return frame, results_data
+
+    h, w = frame.shape[:2]
+    small_frame = cv2.resize(frame, (640, 360))
+
+    if time.time() - last_detect_time > 1:
+        results = yolo_model(small_frame, verbose=False)[0]
+        last_box = results.boxes
+        last_detect_time = time.time()
+
+    boxes = last_box
+    if boxes is None:
+        return frame, results_data
+
+    scale_x = w / 640
+    scale_y = h / 360
+
+    for box in boxes:
+        cls_id = int(box.cls[0].item())
+        if cls_id != 0:
             continue
 
         x1, y1, x2, y2 = map(int, box.xyxy[0])
 
-        # ===== CROP NGƯỜI =====
-        person_crop = frame[y1:y2, x1:x2]
+        x1 = int(x1 * scale_x)
+        y1 = int(y1 * scale_y)
+        x2 = int(x2 * scale_x)
+        y2 = int(y2 * scale_y)
 
+        person_crop = frame[max(0, y1):y2, max(0, x1):x2]
         if person_crop.size == 0:
             continue
 
-        # ===== PREPROCESS =====
-        input_tensor = transform(person_crop).unsqueeze(0).to(device)
+        label = last_label
+        confidence = 0.0
 
-        # ===== CNN PREDICT =====
-        with torch.no_grad():
-            output = cnn_model(input_tensor)
-            pred = torch.argmax(output, dim=1).item()
+        if frame_count % 10 == 0:
+            try:
+                img = cv2.resize(person_crop, (IMG_SIZE, IMG_SIZE))
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                img = np.expand_dims(img / 255.0, axis=0)
 
-        label = LABELS[pred]
+                preds = cnn_model(img, training=False)
+                idx = np.argmax(preds[0])
+                confidence = float(preds[0][idx])
 
-        # ===== VẼ BOX =====
-        color = (0, 255, 0) if pred == 0 else (0, 0, 255)
+                label = LABELS[idx]
+                last_label = f"{label} ({confidence*100:.1f}%)"
+            except:
+                pass
+
+        # 👇 lưu dữ liệu vào list
+        results_data.append({
+            "bbox": [x1, y1, x2, y2],
+            "label": label,
+            "confidence": confidence
+        })
+
+        color = (0, 255, 0) if "Normal" in label else (0, 0, 255)
 
         cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-        cv2.putText(
-            frame,
-            label,
-            (x1, y1 - 10),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.7,
-            color,
-            2
-        )
+        cv2.putText(frame, last_label, (x1, y1 - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
 
-    return frame
+    return frame, results_data

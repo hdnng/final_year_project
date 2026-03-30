@@ -11,6 +11,11 @@ st.set_page_config(layout="wide")
 require_auth()
 
 # ===== SIDEBAR =====
+from utils.hide_streamlit_sidebar import hide_sidebar
+
+hide_sidebar()
+from utils.load_css import load_css
+st.markdown(load_css("styles/sidebar.css"), unsafe_allow_html=True)
 render_sidebar(active="setting")
 
 # ===== LOAD CSS =====

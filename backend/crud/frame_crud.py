@@ -9,3 +9,5 @@ def create_frame(db, image_path, session_id):
     )
     db.add(frame)
     db.commit()
+    db.refresh(frame)
+    return frame

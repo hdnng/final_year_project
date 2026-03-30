@@ -10,13 +10,17 @@ from crud.session_crud import create_session, end_session
 from crud.frame_crud import create_frame
 from pygrabber.dshow_graph import FilterGraph
 from ai_model.ai_pipeline import process_frame
+from crud.statistics_crud import create_statistics
+from crud.ai_result_crud import create_ai_result
 
-# ===== GLOBAL STATE =====
+# ===== GLOBAL =====
 cap = None
 running = False
 thread = None
 current_session_id = None
-latest_frame = None   # 🔥 dùng cho stream
+latest_frame = None
+
+frame_count = 0
 
 
 # =========================
@@ -30,7 +34,6 @@ def start_camera(user_id=1, class_id="Unknown", camera_index=0):
 
     db = SessionLocal()
 
-    # ===== TẠO SESSION =====
     session = create_session(
         db=db,
         user_id=user_id,
@@ -40,20 +43,21 @@ def start_camera(user_id=1, class_id="Unknown", camera_index=0):
 
     current_session_id = session.session_id
 
-    # ===== OPEN CAMERA (FIX BACKEND) =====
     cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
+
+    # 🔥 giảm FPS
+    cap.set(cv2.CAP_PROP_FPS, 15)
 
     if not cap.isOpened():
         raise Exception(f"Cannot open camera {camera_index}")
 
     running = True
 
-    # ===== START THREAD =====
     thread = threading.Thread(target=capture_loop)
     thread.daemon = True
     thread.start()
 
-    print(f"Camera {camera_index} started with session {current_session_id}")
+    print(f"Camera {camera_index} started")
 
     return current_session_id
 
@@ -62,7 +66,7 @@ def start_camera(user_id=1, class_id="Unknown", camera_index=0):
 # CAPTURE LOOP
 # =========================
 def capture_loop():
-    global running, cap, current_session_id, latest_frame
+    global running, cap, current_session_id, latest_frame, frame_count
 
     db = SessionLocal()
 
@@ -73,20 +77,15 @@ def capture_loop():
     last_save_time = 0
 
     while running:
-        if cap is None:
-            time.sleep(0.1)
-            continue
-
         ret, frame = cap.read()
-
         if not ret:
             continue
 
-        # 🔥 dùng cho stream
-        #latest_frame = frame.copy()
+        frame_count += 1
 
-        processed_frame = process_frame(frame)
-        latest_frame = processed_frame.copy()
+        # ===== SKIP FRAME (chỉ xử lý mỗi 3 frame) =====
+        processed_frame, results = process_frame(frame, frame_count)
+        latest_frame = processed_frame
 
         # ===== SAVE mỗi 30s =====
         if time.time() - last_save_time > 30:
@@ -96,10 +95,22 @@ def capture_loop():
             cv2.imwrite(str(image_path), frame)
 
             if current_session_id:
-                create_frame(db, str(image_path), current_session_id)
+                frame_obj = create_frame(db, str(image_path), current_session_id)
 
+                # 🔥 LƯU AI RESULTS
+                
+
+                # lưu ai_results
+                for r in results:
+                    create_ai_result(db, r, frame_obj.frame_id)
+
+                # 🔥 TÍNH & LƯU STATISTICS
+                stats_data = calculate_stats(results)
+
+                create_statistics(db, stats_data, current_session_id)
+
+                db.commit()
             print(f"Saved: {image_path}")
-
             last_save_time = time.time()
 
         time.sleep(0.03)  # ~30 FPS
@@ -111,9 +122,6 @@ def capture_loop():
 def stop_camera():
     global running, cap, current_session_id
 
-    if not running:
-        return
-
     running = False
 
     if cap:
@@ -124,30 +132,34 @@ def stop_camera():
 
     if current_session_id:
         end_session(db, current_session_id)
-        print(f"Session {current_session_id} ended")
 
     current_session_id = None
-
     print("Camera stopped")
 
 
 # =========================
-# STREAM VIDEO
+# STREAM
 # =========================
 def gen_frames():
     global latest_frame
 
     while True:
         if latest_frame is None:
-            time.sleep(0.1)
+            time.sleep(0.05)
             continue
 
-        ret, buffer = cv2.imencode('.jpg', latest_frame)
-        frame_bytes = buffer.tobytes()
+        # 🔥 giảm chất lượng JPEG
+        ret, buffer = cv2.imencode(
+            '.jpg',
+            latest_frame,
+            [int(cv2.IMWRITE_JPEG_QUALITY), 70]
+        )
 
         yield (
             b'--frame\r\n'
-            b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n'
+            b'Content-Type: image/jpeg\r\n\r\n' +
+            buffer.tobytes() +
+            b'\r\n'
         )
 
 
@@ -159,31 +171,33 @@ def list_cameras(max_index=5):
 
     for i in range(max_index):
         cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
-
-        if cap is None or not cap.isOpened():
-            continue
-
-        # 🔥 test đọc frame (quan trọng)
-        ret, _ = cap.read()
-
-        if ret:
-            available.append(i)
-
+        if cap.isOpened():
+            ret, _ = cap.read()
+            if ret:
+                available.append(i)
         cap.release()
 
     return available
 
 
 def list_camera_with_name():
-    pythoncom.CoInitialize()  # 🔥 bắt buộc
+    pythoncom.CoInitialize()
 
     try:
         devices = FilterGraph().get_input_devices()
-
-        return [
-            {"index": i, "name": name}
-            for i, name in enumerate(devices)
-        ]
-
+        return [{"index": i, "name": name} for i, name in enumerate(devices)]
     finally:
-        pythoncom.CoUninitialize()  # 🔥 cleanup
+        pythoncom.CoUninitialize()
+
+
+def calculate_stats(results):
+    total = len(results)
+    sleeping = sum(1 for r in results if "Sleeping" in r["label"])
+
+    focus_rate = 1 - (sleeping / total) if total else 0
+
+    return {
+        "total": total,
+        "sleeping": sleeping,
+        "focus_rate": focus_rate
+    }

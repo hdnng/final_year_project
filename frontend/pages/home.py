@@ -3,8 +3,13 @@ import requests
 import os
 from PIL import Image
 from pathlib import Path
+
 from  streamlit_autorefresh import st_autorefresh
+from components.app_sidebar import render_sidebar
+from utils.hide_streamlit_sidebar import hide_sidebar
+from utils.load_css import load_css
 st.set_page_config(layout="wide")
+st.markdown(load_css("styles/sidebar.css"), unsafe_allow_html=True)
 
 if "running" not in st.session_state:
     st.session_state["running"] = False
@@ -12,20 +17,16 @@ if "running" not in st.session_state:
 API_URL = "http://127.0.0.1:8000/camera"
 
 # ===== SIDEBAR =====
-with st.sidebar:
-    st.markdown("## 🎓 EduVision AI")
-    st.markdown("Phân tích hành vi người học")
 
-    st.markdown("---")
-    st.button("📹 Giám sát")
-    st.button("📊 Thống kê")
-    st.button("📁 Lịch sử")
-    st.button("⚙️ Cài đặt")
+hide_sidebar()
+render_sidebar(active="home")
 
 # ===== HEADER =====
-st.markdown("## 📹 Giám sát thời gian thực")
+
+st.markdown("##  Giám sát thời gian thực")
 
 # ===== CONTROL =====
+
 col_top1, col_top2, col_top3 = st.columns([2,1,1])
  
 # 🔥 nhập mã lớp
@@ -33,7 +34,7 @@ with col_top1:
     class_id = st.text_input("Nhập mã lớp", placeholder="VD: 10A1")
 
     if not class_id.strip():
-        st.info("👉 Vui lòng nhập mã lớp để bắt đầu")
+        st.info("Vui lòng nhập mã lớp để bắt đầu")
 
 # ===== lấy camera =====
 try:
@@ -101,7 +102,7 @@ left_col, right_col = st.columns([3,1])
 
 # ===== LEFT: CAMERA STATUS =====
 with left_col:
-    st.markdown("### 🎥 Camera realtime")
+    st.markdown("###  Camera realtime")
 
     if st.session_state.get("running", False):
         st.image("http://127.0.0.1:8000/camera/video_feed")
@@ -110,7 +111,7 @@ with left_col:
 
 # ===== RIGHT: IMAGE PANEL =====
 with right_col:
-    st.markdown("### 📸 Ảnh chụp mỗi 30s")
+    st.markdown("### Khung hình trích xuất")
 
     if st.session_state.get("running") and st.session_state.get("session_id"):
         try:
