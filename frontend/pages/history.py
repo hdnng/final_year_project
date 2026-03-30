@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import requests
 
+
 API_URL = "http://localhost:8000"
 
 # ================= API =================
@@ -42,7 +43,7 @@ if not data:
 df = pd.DataFrame(data["sessions"])
 
 # ================= HEADER =================
-st.markdown('<div class="title">📂 Lịch sử phân tích</div>', unsafe_allow_html=True)
+st.markdown('<div class="title"> Lịch sử phân tích</div>', unsafe_allow_html=True)
 
 col1, col2 = st.columns(2)
 
@@ -91,7 +92,7 @@ end = start + page_size
 df_page = df.iloc[start:end]
 
 # ================= TABLE CUSTOM =================
-st.markdown("### 📋 Danh sách phiên")
+st.markdown("### Danh sách phiên")
 
 # Header
 col1, col2, col3, col4, col5 = st.columns([2, 3, 2, 2, 1])
