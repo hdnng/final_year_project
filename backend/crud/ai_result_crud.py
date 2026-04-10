@@ -10,6 +10,5 @@ def create_ai_result(db: Session, data: dict, frame_id: int):
         frame_id=frame_id
     )
     db.add(ai)
-    db.commit()
-    db.refresh(ai)
+    db.flush()  # Để lấy ai_result_id trước khi commit
     return ai

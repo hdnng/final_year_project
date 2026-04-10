@@ -5,7 +5,7 @@ from datetime import datetime
 def create_session(db: Session, user_id: int, class_id: str, camera_url: str):
     new_session = SessionModel(
         class_id=class_id,
-        start_time=datetime.now(),
+        start_time=datetime.utcnow(),
         camera_url=camera_url,
         user_id=user_id
     )
@@ -21,5 +21,5 @@ def end_session(db, session_id):
     ).first()
 
     if session:
-        session.end_time = datetime.now()
+        session.end_time = datetime.utcnow()
         db.commit()

@@ -1,4 +1,5 @@
 import streamlit as st
+from services.auth_api import logout
 
 def render_sidebar(active="home"):
     with st.sidebar:
@@ -25,10 +26,23 @@ def render_sidebar(active="home"):
         st.markdown("---")
 
         if st.button("🚪 Đăng xuất", use_container_width=True):
+            # Call logout API to blacklist token
+            try:
+                if "client" in st.session_state:
+                    logout_res = logout(st.session_state.client)
+                    if logout_res and logout_res.status_code == 200:
+                        st.info("✅ Đăng xuất thành công")
+                    else:
+                        st.warning("⚠️ Không thể kết nối API, đang đăng xuất cục bộ...")
+            except Exception as e:
+                print(f"Logout API error: {e}")
+                st.warning("⚠️ Lỗi kết nối, đang đăng xuất...")
+
+            # Clear session and redirect
             st.session_state.clear()
             st.switch_page("pages/login.py")
 
-        # ===== ACTIVE STYLE (QUAN TRỌNG NHẤT) =====
+        # ===== ACTIVE STYLE =====
         st.markdown(f"""
         <style>
         div[data-testid="stButton"][key="{active}"] button {{

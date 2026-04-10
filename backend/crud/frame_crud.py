@@ -4,10 +4,9 @@ from datetime import datetime
 def create_frame(db, image_path, session_id):
     frame = Frame(
         image_path=image_path,
-        extracted_at=datetime.now(),
+        extracted_at=datetime.utcnow(),
         session_id=session_id
     )
     db.add(frame)
-    db.commit()
-    db.refresh(frame)
+    db.flush()  # Để lấy frame_id trước khi commit
     return frame

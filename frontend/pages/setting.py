@@ -1,4 +1,5 @@
 import streamlit as st
+import requests
 from components.app_sidebar import render_sidebar
 from utils.load_css import load_css
 from services.user_api import change_password, update_user, get_user
@@ -6,6 +7,16 @@ from utils.auth_guard import require_auth
 
 # ===== CONFIG =====
 st.set_page_config(layout="wide")
+
+# ===== INIT SESSION STATE (CRITICAL!) =====
+if "is_login" not in st.session_state:
+    st.session_state["is_login"] = False
+if "access_token_value" not in st.session_state:
+    st.session_state["access_token_value"] = None
+if "refresh_token_value" not in st.session_state:
+    st.session_state["refresh_token_value"] = None
+if "client" not in st.session_state:
+    st.session_state.client = requests.Session()
 
 # ===== AUTH CHECK =====
 require_auth()
@@ -25,8 +36,16 @@ st.markdown(load_css("styles/setting.css"), unsafe_allow_html=True)
 client = st.session_state.client
 user = get_user(client)
 
-name_default = user["name"] if user else ""
-email_default = user["email"] if user else ""
+if not user:
+    st.error("❌ Không thể tải thông tin người dùng. Vui lòng đạng nhập lại")
+    if st.button("🔄 Đăng nhập lại"):
+        st.session_state.clear()
+        st.switch_page("pages/login.py")
+    st.stop()
+
+# ===== GET FIELDS (support both full_name and name) =====
+full_name = user.get("full_name") or user.get("name", "")
+email = user.get("email", "")
 
 # ===== SUCCESS MESSAGE =====
 if st.session_state.get("update_success"):
@@ -48,8 +67,8 @@ with col1:
     st.image("https://i.pravatar.cc/100")
 
 with col2:
-    st.write(f"**{name_default}**")
-    st.caption(email_default)
+    st.write(f"**{full_name}**")
+    st.caption(email)
 
 # ===== FORM UPDATE USER =====
 st.subheader("Chỉnh sửa thông tin")
@@ -58,24 +77,25 @@ with st.form("update_user_form"):
     col1, col2 = st.columns(2)
 
     with col1:
-        name = st.text_input("Họ và tên", value=name_default)
+        name = st.text_input("Họ và tên", value=full_name)
 
     with col2:
-        email = st.text_input("Email", value=email_default)
+        email_input = st.text_input("Email", value=email)
 
     submitted = st.form_submit_button("💾 Lưu thay đổi", use_container_width=True)
 
     if submitted:
-        if not name or not email:
+        if not name or not email_input:
             st.warning("⚠️ Vui lòng nhập đầy đủ thông tin")
         else:
-            success, res = update_user(client, name, email)
+            with st.spinner("Đang cập nhật..."):
+                success, res = update_user(client, name, email_input)
 
             if success:
                 st.session_state.update_success = True
                 st.rerun()
             else:
-                st.error(f"❌ Lỗi: {res}")
+                st.error(f"❌ {res}")
 
 st.divider()
 
@@ -98,11 +118,11 @@ with st.expander("Đổi mật khẩu"):
         # ===== PASSWORD STRENGTH =====
         if new_password:
             if len(new_password) < 6:
-                st.error("🔴 Mật khẩu yếu")
+                st.error("🔴 Mật khẩu yếu (< 6 ký tự)")
             elif len(new_password) < 10:
-                st.warning("🟡 Mật khẩu trung bình")
+                st.warning("🟡 Mật khẩu trung bình (6-10 ký tự)")
             else:
-                st.success("🟢 Mật khẩu mạnh")
+                st.success("🟢 Mật khẩu mạnh (> 10 ký tự)")
 
         # ===== SUBMIT =====
         submitted_pass = st.form_submit_button("Cập nhật mật khẩu", use_container_width=True)
