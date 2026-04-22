@@ -71,7 +71,7 @@ def capture_loop() -> None:
                     _save_snapshot(db, state, frame, results, image_dir, frame_count)
                     last_save_time = time.time()
 
-                time.sleep(0.03)  # ~30 FPS
+                time.sleep(0.05)  # ~20 FPS ceiling (camera set to 15 FPS)
 
             except KeyboardInterrupt:
                 logger.info("Capture loop interrupted by user")

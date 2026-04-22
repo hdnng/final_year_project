@@ -81,9 +81,10 @@ def get_sessions_with_frame_count(
     user_id: int,
     skip: int = 0,
     limit: int = 20,
+    search: Optional[str] = None,
 ) -> list[Any]:
     """Retrieve sessions with an aggregated frame count (single query)."""
-    return (
+    query = (
         db.query(
             SessionModel.session_id,
             SessionModel.class_id,
@@ -92,6 +93,13 @@ def get_sessions_with_frame_count(
         )
         .outerjoin(Frame, Frame.session_id == SessionModel.session_id)
         .filter(SessionModel.user_id == user_id)
+    )
+
+    if search:
+        query = query.filter(SessionModel.class_id.ilike(f"%{search}%"))
+
+    return (
+        query
         .group_by(SessionModel.session_id)
         .order_by(SessionModel.start_time.desc())
         .offset(skip)

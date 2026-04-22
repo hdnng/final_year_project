@@ -1,6 +1,7 @@
 """Frame request/response schemas."""
 
 from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel
 
@@ -34,6 +35,8 @@ class DetectionItem(BaseModel):
     student_id: str
     status: str
     confidence: float
+    user_label: Optional[str] = None
+    face_bbox: Optional[list[int]] = None
 
 
 class FrameDetailResponse(BaseModel):

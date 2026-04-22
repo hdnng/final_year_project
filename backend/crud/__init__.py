@@ -40,6 +40,7 @@ from crud.ai_result_crud import (
 from crud.statistics_crud import (
     create_statistics,
     get_stats_by_session,
+    recalculate_statistics_for_frame,
 )
 
 __all__ = [
@@ -64,4 +65,5 @@ __all__ = [
     "update_ai_result_label",
     "create_statistics",
     "get_stats_by_session",
+    "recalculate_statistics_for_frame",
 ]

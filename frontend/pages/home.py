@@ -79,27 +79,27 @@ if cams_res:
         st.stop()
 
 # ── Controls ────────────────────────────────────────────────
-col1, col2, col3 = st.columns([2, 1, 1])
+col_input, col_cam, col_start, col_stop = st.columns([1.5, 1.5, 1, 1])
 
-with col1:
-    class_id = st.text_input("Nhập mã lớp", placeholder="VD: 10A1")
+with col_input:
+    class_id = st.text_input("Nhập mã lớp", placeholder="VD: 10A1", label_visibility="collapsed")
 
+with col_cam:
     if cams:
         selected_cam = st.selectbox(
             "Chọn camera", cams,
             format_func=lambda x: x.get("name", "Unknown"),
+            label_visibility="collapsed",
         )
         camera_index = selected_cam["index"]
     else:
         st.warning("Không có camera")
         camera_index = None
 
-with col2:
-    st.write("")
-    st.write("")
+with col_start:
     if not st.session_state["running"]:
         disabled = not class_id.strip() or camera_index is None
-        if st.button("🟢 Bắt đầu phân tích", use_container_width=True, disabled=disabled):
+        if st.button("▶ Bắt đầu phân tích", use_container_width=True, disabled=disabled, type="primary"):
             res = safe_post(
                 f"{CAMERA_URL}/start",
                 params={"camera_index": camera_index, "class_id": class_id.strip()},
@@ -114,11 +114,9 @@ with col2:
             else:
                 st.error("Không thể bắt đầu camera")
 
-with col3:
-    st.write("")
-    st.write("")
+with col_stop:
     if st.session_state["running"]:
-        if st.button("🔴 Dừng phân tích", use_container_width=True):
+        if st.button("⏹ Dừng phân tích", use_container_width=True, type="secondary"):
             safe_post(f"{CAMERA_URL}/stop", timeout=5)
             st.session_state["running"] = False
             st.session_state["session_id"] = None
@@ -127,55 +125,119 @@ with col3:
             st.rerun()
 
 # ── Main Layout ─────────────────────────────────────────────
-left_col, right_col = st.columns([3.3, 1.2])
+left_col, right_col = st.columns([2.5, 1.5])
 
 # Left panel — camera feed
 with left_col:
     st.markdown('<div class="card-box">', unsafe_allow_html=True)
-    st.subheader("Camera realtime")
 
-    if st.session_state["running"]:
-        cam_w, cam_h = 1280, 720
-        info_res = safe_get(f"{CAMERA_URL}/info")
-        if info_res and info_res.status_code == 200:
-            try:
-                info = info_res.json()
-                cam_w = info.get("width", 1280)
-                cam_h = info.get("height", 720)
-            except Exception:
-                pass
-        if cam_w <= 0 or cam_h <= 0:
-            cam_w, cam_h = 1280, 720
+    # Section header with status
+    is_running = st.session_state["running"]
+    status_class = "active" if is_running else "inactive"
+    status_text = "Đang phát" if is_running else "Chờ kết nối"
+    st.markdown(f"""
+    <div class="section-header">
+        <h3>📹 Camera trực tiếp</h3>
+        <span class="status-badge {status_class}">● {status_text}</span>
+    </div>
+    """, unsafe_allow_html=True)
 
+    if is_running:
+        # Elapsed timer — computed client-side via JS for smooth updates
+        # without Streamlit reruns
+        start_time = st.session_state["capture_start_time"]
+        elapsed_str = "00:00:00"
+        if start_time:
+            elapsed = int(time.time() - start_time)
+            h, m, s = elapsed // 3600, (elapsed % 3600) // 60, elapsed % 60
+            elapsed_str = f"{h:02d}:{m:02d}:{s:02d}"
+
+        # Use a cache-busting timestamp param so browser doesn't reuse a
+        # stale / disconnected MJPEG connection on Streamlit rerun.
+        cache_bust = int(time.time())
         st.markdown(f"""
-        <div style="
-            width:100%; aspect-ratio:{cam_w}/{cam_h};
-            background:black; border-radius:14px;
-            overflow:hidden; display:flex;
-            align-items:center; justify-content:center;
-        ">
-            <img src="{CAMERA_URL}/video_feed"
-                 style="width:100%; height:100%; object-fit:contain;">
+        <div class="camera-feed-wrapper">
+            <img src="{CAMERA_URL}/video_feed?t={cache_bust}" alt="Camera feed">
+            <div class="rec-indicator">
+                <span class="rec-dot"></span>
+                REC <span id="elapsed-timer">{elapsed_str}</span>
+            </div>
         </div>
+        <script>
+        (function() {{
+            var startEpoch = {start_time or 0};
+            if (!startEpoch) return;
+            var el = document.getElementById('elapsed-timer');
+            if (!el) return;
+            setInterval(function() {{
+                var elapsed = Math.floor(Date.now() / 1000 - startEpoch);
+                var h = Math.floor(elapsed / 3600);
+                var m = Math.floor((elapsed % 3600) / 60);
+                var s = elapsed % 60;
+                el.textContent =
+                    String(h).padStart(2,'0') + ':' +
+                    String(m).padStart(2,'0') + ':' +
+                    String(s).padStart(2,'0');
+            }}, 1000);
+        }})();
+        </script>
         """, unsafe_allow_html=True)
 
-        # Capture progress bar
-        start_time = st.session_state["capture_start_time"]
+        # Capture countdown — fully client-side CSS animation + JS timer
+        # so it stays smooth regardless of Streamlit rerun interval
         if start_time:
-            elapsed = time.time() - start_time
-            cycle = elapsed % 30
-            percent = int((cycle / 30) * 100)
-            remain = max(0, int(30 - cycle))
-            st.progress(percent, text=f"Đang trích xuất khung hình... {remain}s")
+            elapsed_total = time.time() - start_time
+            cycle_offset = elapsed_total % 30
+            st.markdown(f"""
+            <div class="capture-countdown">
+                <div class="countdown-header">
+                    <span class="countdown-icon">◉</span>
+                    <span class="countdown-label">Trích xuất khung hình tiếp theo</span>
+                    <span class="countdown-timer" id="countdown-sec">{max(0, int(30 - cycle_offset))}s</span>
+                </div>
+                <div class="countdown-track">
+                    <div class="countdown-fill" id="countdown-bar"
+                         style="--offset: {cycle_offset}s"></div>
+                </div>
+            </div>
+            <script>
+            (function() {{
+                var startEpoch = {start_time};
+                var bar = document.getElementById('countdown-bar');
+                var label = document.getElementById('countdown-sec');
+                if (!bar || !label) return;
+                function update() {{
+                    var elapsed = (Date.now() / 1000 - startEpoch) % 30;
+                    var remain = Math.max(0, Math.ceil(30 - elapsed));
+                    var pct = (elapsed / 30) * 100;
+                    bar.style.width = pct + '%';
+                    label.textContent = remain + 's';
+                }}
+                update();
+                setInterval(update, 500);
+            }})();
+            </script>
+            """, unsafe_allow_html=True)
     else:
-        st.info("Nhấn Bắt đầu để mở camera")
+        st.markdown("""
+        <div class="camera-placeholder">
+            <span class="icon">📷</span>
+            <span class="text">Nhấn "Bắt đầu phân tích" để mở camera</span>
+        </div>
+        """, unsafe_allow_html=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
 
 # Right panel — extracted frames
 with right_col:
     st.markdown('<div class="right-card">', unsafe_allow_html=True)
-    st.subheader("Khung hình trích xuất")
+
+    st.markdown("""
+    <div class="section-header">
+        <h3>🖼 Khung hình trích xuất</h3>
+        <span class="refresh-label">Mỗi 30s</span>
+    </div>
+    """, unsafe_allow_html=True)
 
     if st.session_state["running"] and st.session_state["session_id"]:
         sid = st.session_state["session_id"]
@@ -188,9 +250,9 @@ with right_col:
                 frames = []
 
             if not frames:
-                st.info("Chưa có ảnh")
+                st.info("Chưa có khung hình nào được trích xuất")
             else:
-                box = st.container(height=720, border=False)
+                box = st.container(height=500, border=False)
                 with box:
                     for frame in frames:
                         img_path = frame.get("image_path")
@@ -199,32 +261,41 @@ with right_col:
 
                         st.markdown('<div class="frame-item">', unsafe_allow_html=True)
                         st.image(img_path, use_container_width=True)
-                        st.caption(f"Frame #{frame['frame_id']}")
-                        st.caption(frame.get("extracted_at", ""))
 
-                        if st.button(
-                            "Xem chi tiết",
-                            key=f"detail_{frame['frame_id']}",
-                            use_container_width=True,
-                        ):
-                            st.session_state["frame_id"] = frame["frame_id"]
-                            st.switch_page("pages/frame_detail.py")
+                        fc1, fc2 = st.columns([2, 1])
+                        with fc1:
+                            st.caption(f"Nhận diện: {frame.get('total_students', '?')} HS")
+                            st.caption(frame.get("extracted_at", ""))
+                        with fc2:
+                            if st.button(
+                                "XEM CHI TIẾT",
+                                key=f"detail_{frame['frame_id']}",
+                                use_container_width=True,
+                            ):
+                                st.session_state["frame_id"] = frame["frame_id"]
+                                st.switch_page("pages/frame_detail.py")
 
                         st.markdown("</div>", unsafe_allow_html=True)
         else:
-            st.warning("Không load được frame")
+            st.warning("Không tải được khung hình")
     else:
-        st.info("Chưa bắt đầu session")
+        st.info("Chưa bắt đầu phiên giám sát")
 
     if st.session_state["running"]:
-        if st.button("XEM TẤT CẢ", use_container_width=True):
+        st.markdown('<div class="view-all-btn">', unsafe_allow_html=True)
+        if st.button("📊 XEM TẤT CẢ", use_container_width=True):
             st.switch_page("pages/session_analysis.py")
+        st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ── Auto Refresh ────────────────────────────────────────────
+# Refresh every 10s (not 1s!) — The MJPEG <img> stream updates itself
+# independently; Streamlit reruns only needed to refresh the frame list
+# and sync backend status. 1s reruns caused button-click races and
+# unnecessary API spam.
 if st.session_state["running"]:
     st_autorefresh(
-        interval=1000,
+        interval=10000,
         key=f"refresh_{st.session_state['refresh_key']}",
     )

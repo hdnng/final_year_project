@@ -6,9 +6,10 @@ from streamlit_cookies_manager import EncryptedCookieManager
 
 from config import COOKIE_PASSWORD
 from services.auth_api import login
+from utils.load_css import load_css
 
 # ── Config ──────────────────────────────────────────────────
-st.set_page_config(layout="centered", initial_sidebar_state="collapsed")
+st.set_page_config(layout="centered", initial_sidebar_state="collapsed", page_title="Đăng nhập")
 
 cookies = EncryptedCookieManager(password=COOKIE_PASSWORD)
 if not cookies.ready():
@@ -22,13 +23,35 @@ st.markdown("""
 <style>[data-testid="stSidebar"] {display: none;}</style>
 """, unsafe_allow_html=True)
 
+try:
+    st.markdown(load_css("styles/login.css"), unsafe_allow_html=True)
+except Exception:
+    pass
+
+# ── Header Banner ───────────────────────────────────────────
+st.markdown("""
+<div class="login-banner">
+    <div class="logo-box">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 3v18h18" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M7 14l4-4 4 4 6-6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M21 8v-4h-4" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </div>
+    <div class="logo-text">EduVision AI</div>
+</div>
+<div class="welcome-title">Chào mừng trở lại</div>
+""", unsafe_allow_html=True)
+
 # ── Form ────────────────────────────────────────────────────
-st.title("Đăng nhập")
+email = st.text_input("Email", placeholder="email@truong.edu.vn")
+password = st.text_input("Mật khẩu", type="password", placeholder="Nhập mật khẩu")
 
-email = st.text_input("Email")
-password = st.text_input("Mật khẩu", type="password")
+st.markdown('<div id="forgot-password-marker"></div>', unsafe_allow_html=True)
+if st.button("Quên mật khẩu?"):
+    st.info("Tính năng đang phát triển")
 
-if st.button("Đăng nhập"):
+if st.button("Đăng nhập", type="primary", use_container_width=True):
     if not email or not password:
         st.error("❌ Vui lòng nhập đầy đủ email và mật khẩu")
     else:
@@ -66,15 +89,9 @@ if st.button("Đăng nhập"):
             st.error(f"❌ Lỗi: {res.text}")
 
 # ── Footer ──────────────────────────────────────────────────
-st.divider()
-
-col1, col2 = st.columns(2)
-with col1:
-    st.write("Chưa có tài khoản?")
-    if st.button("📝 Đăng ký", use_container_width=True):
-        st.switch_page("pages/register.py")
-
-with col2:
-    st.write("")
-    if st.button("🔧 Quên mật khẩu?", use_container_width=True):
-        st.info("Tính năng đang phát triển")
+st.markdown("""
+<div class="register-footer">
+    <span class="text-muted">Chưa có tài khoản?</span> 
+    <a href="register" target="_self" class="register-link">Đăng ký ngay</a>
+</div>
+""", unsafe_allow_html=True)

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session as DBSession
 from core.config import settings
 from core.exceptions import NotFoundError, ValidationError
 from core.logger import get_logger
+from crud.ai_result_crud import get_ai_results_by_frame
 from crud.frame_crud import get_frames_by_session
 from crud.session_crud import (
     delete_session_cascade,
@@ -15,8 +16,8 @@ from crud.session_crud import (
     get_session_count_by_user,
     get_sessions_with_frame_count,
 )
-from crud.statistics_crud import get_stats_by_session
 from service.camera_state import CameraState
+from utils.label_utils import get_final_label
 
 logger = get_logger(__name__)
 
@@ -26,9 +27,10 @@ def get_session_list(
     user_id: int,
     skip: int = 0,
     limit: int = 20,
+    search: str | None = None,
 ) -> list[dict]:
     """Return a lightweight list of sessions with frame counts."""
-    sessions = get_sessions_with_frame_count(db, user_id, skip, limit)
+    sessions = get_sessions_with_frame_count(db, user_id, skip, limit, search)
 
     return [
         {
@@ -53,6 +55,9 @@ def get_session_detail(db: DBSession, session_id: int) -> dict:
     """
     Return full session detail with per-frame statistics.
 
+    Computes sleeping/focus counts directly from ai_results (respecting
+    user label corrections) so that changes propagate in real time.
+
     Raises:
         NotFoundError: Session does not exist.
     """
@@ -61,20 +66,21 @@ def get_session_detail(db: DBSession, session_id: int) -> dict:
         raise NotFoundError(detail="Session not found")
 
     frames = get_frames_by_session(db, session_id, skip=0, limit=10_000)
-    stats = get_stats_by_session(db, session_id)
 
-    # Build frame list with matched statistics
+    # Build frame list — compute stats from ai_results directly
     frame_list: list[dict] = []
     total_students = 0
     total_sleeping = 0
     total_focus = 0.0
 
-    for i, frame in enumerate(frames):
-        stat = stats[i] if i < len(stats) else None
+    for frame in frames:
+        results = get_ai_results_by_frame(db, frame.frame_id)
 
-        students = stat.total_students if stat else 0
-        sleeping = stat.sleeping_count if stat else 0
-        focus = stat.focus_rate if stat else 0.0
+        students = len(results)
+        sleeping = sum(
+            1 for r in results if "Sleeping" in (get_final_label(r) or "")
+        )
+        focus = 1 - (sleeping / students) if students else 0.0
 
         total_students += students
         total_sleeping += sleeping
@@ -135,3 +141,4 @@ def delete_session(
         raise NotFoundError(detail="Session not found")
 
     return {"message": "Session deleted successfully", "session_id": session_id}
+

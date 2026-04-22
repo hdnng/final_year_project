@@ -19,8 +19,8 @@ init_session_state()
 require_auth()
 
 # ── Styles & Sidebar ────────────────────────────────────────
-st.markdown(load_css("styles/statistics.css"), unsafe_allow_html=True)
 st.markdown(load_css("styles/sidebar.css"), unsafe_allow_html=True)
+st.markdown(load_css("styles/statistics.css"), unsafe_allow_html=True)
 hide_sidebar()
 render_sidebar(active="statistics")
 
@@ -50,6 +50,10 @@ client = st.session_state.client
 daily_data = get_daily(client)
 
 if not daily_data:
+    st.markdown(
+        '<div class="page-title">Thống kê hệ thống</div>',
+        unsafe_allow_html=True,
+    )
     st.info("📊 Chưa có dữ liệu thống kê")
     st.stop()
 
@@ -62,6 +66,10 @@ seven_days_ago = datetime.now() - timedelta(days=7)
 df_7d = df[df["date"] >= seven_days_ago]
 
 if len(df_7d) == 0:
+    st.markdown(
+        '<div class="page-title">Thống kê hệ thống</div>',
+        unsafe_allow_html=True,
+    )
     st.info("📊 Chưa có dữ liệu trong 7 ngày gần đây")
     st.stop()
 
@@ -71,92 +79,136 @@ sleeping = int(latest["sleeping"])
 focus_rate = latest.get("focus_rate", 0)
 normal = total - sleeping
 
-# ── Header ──────────────────────────────────────────────────
-st.markdown('<div class="title">📊 Thống kê hệ thống</div>', unsafe_allow_html=True)
+# ── Compute changes ─────────────────────────────────────────
+change_total = "+0%"
+change_sleep = "+0%"
+change_normal = "+0%"
+change_focus = "+0%"
 
-# ── KPI Cards ───────────────────────────────────────────────
-col1, col2, col3, col4 = st.columns(4, gap="large")
+if len(df_7d) > 1:
+    yesterday = df_7d.iloc[-2]
+    prev_total = int(yesterday.get("total", 0))
+    prev_sleeping = int(yesterday.get("sleeping", 0))
+    prev_normal = prev_total - prev_sleeping
+    prev_focus = yesterday.get("focus_rate", 0)
+    
+    if prev_total > 0:
+        pct = ((total - prev_total) / prev_total * 100)
+        change_total = f"{pct:+.0f}%"
+    if prev_sleeping > 0:
+        pct = ((sleeping - prev_sleeping) / prev_sleeping * 100)
+        change_sleep = f"{pct:+.0f}%"
+    if prev_normal > 0:
+        pct = ((normal - prev_normal) / prev_normal * 100)
+        change_normal = f"{pct:+.0f}%"
+    if prev_focus and prev_focus > 0:
+        pct = ((focus_rate - prev_focus) / prev_focus * 100)
+        change_focus = f"{pct:+.0f}%"
 
 sleep_pct = (sleeping / total * 100) if total > 0 else 0
-normal_pct = (normal / total * 100) if total > 0 else 0
 focus_pct = focus_rate * 100 if isinstance(focus_rate, (int, float)) else 0
 
+# ── Header ──────────────────────────────────────────────────
+st.markdown(
+    '<div class="page-title">Thống kê hệ thống</div>',
+    unsafe_allow_html=True,
+)
 
-def _card(col, title: str, value, percent: float, color: str):
+# ── KPI Cards ───────────────────────────────────────────────
+col1, col2, col3, col4 = st.columns(4, gap="medium")
+
+
+def _kpi(col, title, value, change, bar_color, bar_pct=100):
+    """Render a KPI metric card."""
+    # Determine change color
+    if change.startswith("+") and change != "+0%":
+        change_cls = "change-up"
+    elif change.startswith("-"):
+        change_cls = "change-down"
+    else:
+        change_cls = "change-neutral"
+
     col.markdown(f"""
-    <div class="card">
-        <div class="sub">{title}</div>
-        <div class="metric">{value}</div>
-        <div class="progress">
-            <div class="bar {color}" style="width:{percent}%"></div>
+    <div class="kpi-card">
+        <div class="kpi-header">
+            <span class="kpi-label">{title}</span>
+            <span class="kpi-change {change_cls}">{change}</span>
+        </div>
+        <div class="kpi-value">{value}</div>
+        <div class="kpi-bar-track">
+            <div class="kpi-bar {bar_color}" style="width:{bar_pct}%"></div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
 
-_card(col1, "Tổng lượt phát hiện", total, 100, "blue")
-_card(col2, "Ngủ gật", sleeping, sleep_pct, "red")
-_card(col3, "Bình thường", normal, normal_pct, "green")
-_card(col4, "Tập trung", f"{focus_pct:.1f}%", focus_pct, "blue")
+_kpi(col1, "Tổng số lớp học", total, change_total, "bar-blue")
+_kpi(col2, "Video phân tích", sleeping, change_sleep, "bar-green", sleep_pct)
+_kpi(col3, "Ảnh trích xuất", normal, change_normal, "bar-red")
+_kpi(col4, "Sinh viên phát hiện", f"{focus_pct:.0f}%", change_focus, "bar-blue", focus_pct)
 
 # ── Alert ───────────────────────────────────────────────────
 if sleeping > 0:
     st.markdown(f"""
-    <div class="alert block">
-        <div>⚠️ Ghi nhận {sleeping} lượt buồn ngủ hôm nay</div>
-        <div class="button">Xem chi tiết</div>
+    <div class="alert-banner">
+        <div class="alert-content">
+            <span class="alert-icon">⚠️</span>
+            <div>
+                <div class="alert-title">Cảnh báo hành vi buồn ngủ</div>
+                <div class="alert-desc">{sleeping} ca được phát hiện
+                    {f'({change_sleep} so với hôm qua)' if len(df_7d) > 1 else ''}</div>
+            </div>
+        </div>
+        <div class="alert-btn">Xem chi tiết</div>
     </div>
     """, unsafe_allow_html=True)
-
-# ── Day-over-Day ────────────────────────────────────────────
-if len(df_7d) > 1:
-    yesterday = df_7d.iloc[-2]
-    prev_sleeping = yesterday.get("sleeping", 0)
-    change = ((sleeping - prev_sleeping) / prev_sleeping * 100) if prev_sleeping > 0 else (100 if sleeping > 0 else 0)
-    st.markdown(
-        f"<div class='block'>📊 So với hôm qua: {change:+.1f}%</div>",
-        unsafe_allow_html=True,
-    )
 
 # ── Chart ───────────────────────────────────────────────────
-col_left, col_right = st.columns([3, 1], gap="large")
-
-with col_left:
-    st.markdown(
-        '<div class="card block"><div class="title">Xu hướng ngủ gật (7 ngày)</div>',
-        unsafe_allow_html=True,
-    )
-
-    if not df_7d.empty:
-        df_7d = df_7d.copy()
-        df_7d["date_str"] = df_7d["date"].dt.strftime("%d/%m")
-
-        fig = px.bar(df_7d, x="date_str", y="sleeping", text="sleeping")
-        fig.update_traces(marker_color="#ef4444")
-        fig.update_layout(
-            plot_bgcolor="white",
-            paper_bgcolor="white",
-            font_color="#111827",
-            xaxis_title="",
-            yaxis_title="Số người ngủ",
-            bargap=0.15,
-        )
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-    else:
-        st.write("Chưa có dữ liệu")
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-with col_right:
-    today = datetime.now()
-    st.markdown(f"""
-    <div class="card block">
-        <div class="title">Hôm nay</div>
-        <div style="text-align:center; font-size:40px; font-weight:bold;">
-            {today.day}
+st.markdown("""
+<div class="chart-card">
+    <div class="chart-header">
+        <div>
+            <div class="chart-title">Xu hướng ngủ gật</div>
+            <div class="chart-subtitle">Phân tích trong 7 ngày qua</div>
         </div>
-        <div style="text-align:center; color:#6b7280;">
-            {today.strftime("%d/%m/%Y")}
+        <div class="chart-legend">
+            <span class="legend-dot"></span> Buồn ngủ
         </div>
     </div>
-    """, unsafe_allow_html=True)
+</div>
+""", unsafe_allow_html=True)
+
+if not df_7d.empty:
+    df_7d = df_7d.copy()
+    day_names = {0: "T2", 1: "T3", 2: "T4", 3: "T5", 4: "T6", 5: "T7", 6: "CN"}
+    df_7d["day_label"] = df_7d["date"].dt.dayofweek.map(day_names)
+
+    fig = px.bar(df_7d, x="day_label", y="sleeping", text="sleeping")
+    fig.update_traces(
+        marker_color="#fb7185",
+        marker_line_width=0,
+        textposition="outside",
+        textfont=dict(size=13, color="#374151", weight=700),
+    )
+    fig.update_layout(
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        font=dict(color="#64748b", size=12),
+        xaxis=dict(
+            title="",
+            tickfont=dict(size=13, color="#94a3b8"),
+            showgrid=False,
+        ),
+        yaxis=dict(
+            title="",
+            showgrid=True,
+            gridcolor="#f1f5f9",
+            gridwidth=1,
+        ),
+        bargap=0.35,
+        margin=dict(l=20, r=20, t=10, b=30),
+        height=320,
+    )
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+else:
+    st.write("Chưa có dữ liệu")

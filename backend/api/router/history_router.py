@@ -23,12 +23,13 @@ router = APIRouter(prefix="/history", tags=["History"])
 def get_sessions(
     skip: int = Query(0, ge=0, description="Number of sessions to skip"),
     limit: int = Query(20, ge=1, le=100, description="Max sessions to return"),
+    search: str = Query("", description="Search by class name"),
     user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """List sessions with pagination (optimized single-query with frame count)."""
+    """List sessions with pagination and optional class search."""
     try:
-        return get_session_list(db, user_id, skip, limit)
+        return get_session_list(db, user_id, skip, limit, search or None)
     except Exception as exc:
         logger.error(f"Error fetching sessions: {exc}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch sessions")

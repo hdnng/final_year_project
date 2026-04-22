@@ -2,12 +2,15 @@
 Frame business logic — analysis data, detail view, and label corrections.
 """
 
+import ast
+
 from sqlalchemy.orm import Session as DBSession
 
 from core.exceptions import NotFoundError
 from core.logger import get_logger
 from crud.ai_result_crud import get_ai_results_by_frame, update_ai_result_label
 from crud.frame_crud import get_frame_by_id, get_frames_by_session
+from crud.statistics_crud import recalculate_statistics_for_frame
 from utils.label_utils import get_final_label
 
 logger = get_logger(__name__)
@@ -51,18 +54,27 @@ def get_frame_detail(db: DBSession, frame_id: int) -> dict:
 
     rows = get_ai_results_by_frame(db, frame_id)
     total = len(rows)
-    sleeping = sum(1 for r in rows if "Sleeping" in (r.ai_label or ""))
+    # Use get_final_label to respect user corrections
+    sleeping = sum(1 for r in rows if "Sleeping" in (get_final_label(r) or ""))
     avg_conf = round(sum(r.confidence for r in rows) / total, 2) if total else 0.0
 
-    detections = [
-        {
+    detections = []
+    for i, r in enumerate(rows, start=1):
+        bbox = None
+        if r.face_bbox:
+            try:
+                bbox = ast.literal_eval(r.face_bbox)
+            except (ValueError, SyntaxError):
+                bbox = None
+
+        detections.append({
             "result_id": r.result_id,
             "student_id": f"HS{i}",
             "status": get_final_label(r),
             "confidence": r.confidence,
-        }
-        for i, r in enumerate(rows, start=1)
-    ]
+            "user_label": r.user_label,
+            "face_bbox": bbox,
+        })
 
     return {
         "frame_id": frame.frame_id,
@@ -77,7 +89,8 @@ def get_frame_detail(db: DBSession, frame_id: int) -> dict:
 
 def update_result_label(db: DBSession, result_id: int, status: str) -> dict:
     """
-    Apply a user-corrected label to an AI result.
+    Apply a user-corrected label to an AI result, then recalculate
+    the related statistics so the change propagates across the system.
 
     Raises:
         NotFoundError: AI result does not exist.
@@ -85,6 +98,15 @@ def update_result_label(db: DBSession, result_id: int, status: str) -> dict:
     record = update_ai_result_label(db, result_id, status)
     if not record:
         raise NotFoundError(detail="AI result not found")
+
+    # ── Recalculate statistics for the session that owns this frame ──
+    frame = get_frame_by_id(db, record.frame_id)
+    if frame and frame.session_id:
+        recalculate_statistics_for_frame(db, frame.session_id, record.frame_id)
+        logger.info(
+            f"Recalculated statistics for session {frame.session_id} "
+            f"after label correction on result {result_id}"
+        )
 
     return {
         "result_id": result_id,
