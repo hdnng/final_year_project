@@ -1,10 +1,13 @@
+import cv2
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from fastapi.responses import StreamingResponse
 from typing import List
 
+from utils.label_utils import get_final_label
 from models.frame import Frame
 from models.session import Session as SessionModel
+from models.ai_result import AIResult
 from database.database import get_db
 from core.dependencies import get_current_user
 from service.camera_service import (
@@ -219,3 +222,132 @@ def get_sessions(
     except Exception as e:
         logger.error(f"❌ Failed to fetch sessions by user {user_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch sessions")
+    
+
+
+# =========================
+# GET ANALYSIS DATA FOR A SESSION
+# =========================
+@router.get("/analysis/{session_id}")
+def get_analysis(
+    session_id: int,
+    user_id: int = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    frames = db.query(Frame).filter(
+        Frame.session_id == session_id
+    ).order_by(Frame.extracted_at.desc()).all()
+
+    data = []
+
+    for frame in frames:
+        results = db.query(AIResult).filter(
+            AIResult.frame_id == frame.frame_id
+        ).all()
+
+        sleeping = sum(
+            1 for r in results
+            if "Sleeping" in (get_final_label(r) or "")
+        )
+
+        total = len(results)
+        focus = total - sleeping
+
+        data.append({
+            "frame_id": frame.frame_id,
+            "image_path": frame.image_path,
+            "extracted_at": frame.extracted_at,
+            "focus_count": focus,
+            "sleeping_count": sleeping,
+            "total_students": total
+        })
+
+    return data
+
+
+
+# =========================
+# GET frame detail
+# =========================
+from models.ai_result import AIResult
+
+@router.get("/frame-detail/{frame_id}")
+def frame_detail(
+    frame_id: int,
+    user_id: int = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    frame = db.query(Frame).filter(
+        Frame.frame_id == frame_id
+    ).first()
+
+    if not frame:
+        raise HTTPException(404, "Frame not found")
+
+    rows = db.query(AIResult).filter(
+        AIResult.frame_id == frame_id
+    ).all()
+
+    total = len(rows)
+    sleeping = sum(1 for r in rows if "Sleeping" in (r.ai_label or ""))
+    focus = total - sleeping
+
+    avg_conf = round(
+    (sum(r.confidence for r in rows) / total) if total else 0,
+    2
+)
+
+    detections = []
+
+    for i, r in enumerate(rows, start=1):
+        detections.append({
+            "result_id": r.result_id,   # ✅ BẮT BUỘC
+            "student_id": f"HS{i}",
+            "status": get_final_label(r),
+            "confidence": r.confidence
+        })
+
+    return {
+        "frame_id": frame.frame_id,
+        "image_path": frame.image_path,
+        "total_students": total,
+        "sleeping_count": sleeping,
+        "focus_count": focus,
+        "avg_confidence": avg_conf,
+        "detections": detections
+    }
+
+
+from service.camera_state import CameraState
+
+@router.get("/info")
+def camera_info():
+
+    state = CameraState()
+
+    if not state.cap:
+        return {
+            "width": 1280,
+            "height": 720,
+            "running": False
+        }
+
+    width = int(state.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(state.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    return {
+        "width": width,
+        "height": height,
+        "running": state.running
+    }
+
+
+@router.get("/status")
+def camera_status():
+    state = CameraState()
+
+    return {
+        "running": state.running,
+        "session_id": state.current_session_id
+    }
+

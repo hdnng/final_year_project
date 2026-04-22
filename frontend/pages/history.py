@@ -4,10 +4,11 @@ import requests
 
 from utils.load_css import load_css
 from utils.auth_guard import require_auth
+from services.history_api import delete_session
 
 st.markdown(load_css("styles/history.css"), unsafe_allow_html=True)
 
-# ===== INIT SESSION STATE (CRITICAL!) =====
+# ===== INIT SESSION STATE =====
 if "is_login" not in st.session_state:
     st.session_state["is_login"] = False
 if "access_token_value" not in st.session_state:
@@ -24,14 +25,11 @@ API_URL = "http://127.0.0.1:8000"
 
 # ================= API =================
 def get_auth_headers():
-    """Get authorization headers if token exists"""
-    token = st.session_state.get("token")
-    if token:
-        return {"Authorization": f"Bearer {token}"}
-    return {}
+    token = st.session_state.get("access_token_value")
+    return {"Authorization": f"Bearer {token}"} if token else {}
+
 
 def get_history(session):
-    """Lấy lịch sử phiên phân tích"""
     try:
         headers = get_auth_headers()
         sessions_res = session.get(f"{API_URL}/history/sessions", headers=headers)
@@ -47,18 +45,57 @@ def get_history(session):
                 "total_sessions": summary_res.json().get("total_sessions", 0),
                 "month_sessions": summary_res.json().get("month_sessions", 0)
             }
-        else:
-            st.error(f"❌ Lỗi: Sessions={sessions_res.status_code}, Summary={summary_res.status_code}")
-            return None
+
+        st.error(f"❌ Lỗi API: {sessions_res.status_code}")
+        return None
 
     except Exception as e:
         st.error(f"❌ Lỗi kết nối: {str(e)}")
         return None
 
+
+# ================= DELETE HANDLER =================
+def handle_delete_session(session_id):
+    res = delete_session(session_id)
+
+    if not res:
+        st.error("❌ Không kết nối được server")
+        return
+
+    if res.status_code == 200:
+        st.success("✅ Xóa phiên thành công")
+        st.rerun()
+
+    elif res.status_code == 400:
+        st.error("❌ Không thể xóa phiên đang chạy")
+
+    elif res.status_code == 404:
+        st.error("❌ Không tìm thấy session")
+
+    else:
+        st.error(f"❌ Lỗi server: {res.text}")
+
+
+# ================= CONFIRM POPUP =================
+@st.dialog("⚠️ Xác nhận xóa session")
+def confirm_delete(session_id):
+    st.warning("Bạn có chắc muốn xóa session này không?")
+    st.caption("Hành động này sẽ xóa toàn bộ frames và dữ liệu liên quan.")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button("❌ Hủy"):
+            st.rerun()
+
+    with col2:
+        if st.button("🗑 Xóa", type="primary"):
+            handle_delete_session(session_id)
+
+
 # ================= CONFIG =================
 st.set_page_config(layout="wide", page_title="Lịch sử")
 
-# ================= SIDEBAR =================
 from utils.hide_streamlit_sidebar import hide_sidebar
 hide_sidebar()
 
@@ -126,10 +163,8 @@ df_page = df.iloc[start:end]
 # ================= TABLE =================
 st.markdown("### Danh sách phiên")
 
-# ===== TABLE CONTAINER =====
 st.markdown('<div class="table-container">', unsafe_allow_html=True)
 
-# ===== HEADER =====
 header = st.columns([2, 3, 2, 2, 1])
 header[0].markdown('<div class="cell header">Mã phiên</div>', unsafe_allow_html=True)
 header[1].markdown('<div class="cell header">Lớp học</div>', unsafe_allow_html=True)
@@ -137,7 +172,7 @@ header[2].markdown('<div class="cell header">Ngày</div>', unsafe_allow_html=Tru
 header[3].markdown('<div class="cell header">Số lần</div>', unsafe_allow_html=True)
 header[4].markdown('<div class="cell header">Thao tác</div>', unsafe_allow_html=True)
 
-# ===== ROWS =====
+# ================= ROWS =================
 for i, row in df_page.iterrows():
     cols = st.columns([2, 3, 2, 2, 1])
 
@@ -147,13 +182,17 @@ for i, row in df_page.iterrows():
     cols[3].markdown(f'<div class="cell">{row["Số lần"]}</div>', unsafe_allow_html=True)
 
     with cols[4]:
-        st.markdown('<div class="cell">', unsafe_allow_html=True)
-        if st.button("Xem", key=f"view_{i}"):
-            st.session_state.selected_session = int(row["session_id"])
-            st.switch_page("pages/session_detail.py")
-        st.markdown('</div>', unsafe_allow_html=True)
+        c1, c2 = st.columns(2)
 
-# ===== END TABLE =====
+        with c1:
+            if st.button("👁", key=f"view_{i}"):
+                st.session_state.selected_session = int(row["session_id"])
+                st.switch_page("pages/session_detail.py")
+
+        with c2:
+            if st.button("🗑", key=f"del_{i}"):
+                confirm_delete(int(row["session_id"]))
+
 st.markdown('</div>', unsafe_allow_html=True)
 
 # ================= FOOTER =================

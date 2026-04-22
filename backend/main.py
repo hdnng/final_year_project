@@ -10,6 +10,7 @@ from api.router import user_router
 from api.router import camera_router
 from api.router import statistics_router
 from api.router import history_router
+from api.router import ai_result_router
 
 load_dotenv()
 
@@ -48,6 +49,7 @@ app.include_router(user_router.router)
 app.include_router(camera_router.router)
 app.include_router(statistics_router.router)
 app.include_router(history_router.router)
+app.include_router(ai_result_router.router)
 
 
 @app.get("/health")

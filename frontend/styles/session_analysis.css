@@ -1,0 +1,97 @@
+.block-container{
+    padding-top:1rem;
+    padding-left:1.5rem;
+    padding-right:1.5rem;
+    max-width:100%;
+}
+
+.main-title{
+    font-size:34px;
+    font-weight:800;
+    margin-bottom:6px;
+}
+
+.badge{
+    display:inline-block;
+    background:#eaf2ff;
+    color:#1877f2;
+    padding:4px 10px;
+    border-radius:999px;
+    font-size:12px;
+    font-weight:700;
+    margin-right:8px;
+}
+
+.subtext{
+    color:#666;
+    font-size:14px;
+}
+
+.section-title{
+    font-size:20px;
+    font-weight:700;
+    margin-top:12px;
+    margin-bottom:16px;
+}
+
+.card{
+    background:#fff;
+    border:1px solid #ececec;
+    border-radius:18px;
+    padding:12px;
+    margin-bottom:20px;
+}
+
+.card img{
+    border-radius:14px;
+}
+
+.card-title{
+    font-size:18px;
+    font-weight:800;
+    margin-top:10px;
+    margin-bottom:4px;
+}
+
+.card-time{
+    color:#777;
+    font-size:13px;
+    margin-bottom:10px;
+}
+
+.stat-box{
+    background:#f8fafc;
+    border-radius:12px;
+    padding:12px;
+    text-align:center;
+    border:1px solid #eef1f5;
+}
+
+.stat-red{
+    background:#fff4f4;
+    border:1px solid #ffd6d6;
+}
+
+.label{
+    font-size:11px;
+    color:#777;
+    font-weight:700;
+}
+
+.blue{
+    color:#1877f2;
+    font-size:28px;
+    font-weight:800;
+}
+
+.red{
+    color:#ef4444;
+    font-size:28px;
+    font-weight:800;
+}
+
+.footer{
+    text-align:center;
+    color:#777;
+    margin-top:10px;
+}

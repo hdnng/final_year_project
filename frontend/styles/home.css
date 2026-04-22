@@ -1,0 +1,42 @@
+.block-container{
+    padding-top:1rem;
+    padding-left:1.5rem;
+    padding-right:1.5rem;
+    max-width:100%;
+}
+
+.page-title{
+    font-size:32px;
+    font-weight:800;
+    margin-bottom:18px;
+}
+
+.card-box,
+.right-card{
+    background:white;
+    border:1px solid #ececec;
+    border-radius:16px;
+    padding:16px;
+}
+
+.frame-item{
+    background:#f8f9fb;
+    border:1px solid #efefef;
+    border-radius:12px;
+    padding:10px;
+    margin-bottom:12px;
+}
+
+.frame-item img{
+    border-radius:10px;
+}
+
+.stButton > button{
+    border-radius:12px;
+    height:42px;
+    font-weight:700;
+}
+
+div[data-testid="stProgress"] > div{
+    border-radius:20px;
+}

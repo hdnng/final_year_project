@@ -1,3 +1,5 @@
+from service.camera_state import CameraState
+import os
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -114,89 +116,165 @@ def get_session_detail(
     user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Lấy chi tiết 1 session bao gồm:
-    - Session info
-    - Statistics aggregates
-    - Frames data
-    - Duration
-
-    Optimized: Minimal queries with proper joins
-
-    Requires: JWT Authentication
-    """
     try:
-        logger.info(f"📋 Fetching session detail by user {user_id} - session_id={session_id}")
-
-        # ===== SESSION =====
         session = db.query(SessionModel).filter(
             SessionModel.session_id == session_id
         ).first()
 
         if not session:
-            logger.warning(f"⚠️ Session not found by user {user_id} - session_id={session_id}")
             raise HTTPException(status_code=404, detail="Session not found")
 
-        # ===== STATS - Tối ưu hóa vào 1 query =====
-        stats = db.query(
-            func.sum(Statistic.total_students),
-            func.sum(Statistic.sleeping_count),
-            func.avg(Statistic.focus_rate),
-            func.count(Statistic.statistic_id)
-        ).filter(
-            Statistic.session_id == session_id
-        ).first()
-
-        total_students = int(stats[0] or 0)
-        total_sleeping = int(stats[1] or 0)
-        avg_focus = float(stats[2] or 0)
-        total_records = int(stats[3] or 0)
-
-        # ===== THỜI GIAN =====
-        duration = 0
-        if session.start_time and session.end_time:
-            duration = int((session.end_time - session.start_time).total_seconds() / 60)
-
-        # ===== FRAMES - Optimized join (not N+1) =====
-        frames_data = db.query(
-            Frame.frame_id,
-            Frame.extracted_at,
-            Statistic.total_students,
-            Statistic.sleeping_count,
-            Statistic.focus_rate
-        ).join(
-            Statistic, Statistic.session_id == Frame.session_id
-        ).filter(
+        # ===== lấy frames =====
+        frames = db.query(Frame).filter(
             Frame.session_id == session_id
         ).order_by(Frame.extracted_at.desc()).all()
 
-        frame_list = [
-            {
-                "frame_id": f.frame_id,
-                "time": f.extracted_at.strftime("%H:%M:%S"),
-                "status": "Ngủ gật" if f.sleeping_count > 0 else "Bình thường",
-                "students": f.total_students,
-                "accuracy": round(f.focus_rate * 100, 1),
-                "sleeping": f.sleeping_count
-            }
-            for f in frames_data
-        ]
+        # ===== lấy statistics =====
+        stats = db.query(Statistic).filter(
+            Statistic.session_id == session_id
+        ).order_by(Statistic.timestamp.desc()).all()
 
-        logger.debug(f"✅ Session detail retrieved by user {user_id} - frames={len(frame_list)}")
+        # ===== ghép frame với statistic theo index =====
+        frame_list = []
+
+        total_students = 0
+        total_sleeping = 0
+        total_focus = 0
+
+        for i, frame in enumerate(frames):
+
+            stat = stats[i] if i < len(stats) else None
+
+            students = stat.total_students if stat else 0
+            sleeping = stat.sleeping_count if stat else 0
+            focus = stat.focus_rate if stat else 0
+
+            total_students += students
+            total_sleeping += sleeping
+            total_focus += focus
+
+            frame_list.append({
+                "frame_id": frame.frame_id,
+                "time": frame.extracted_at.strftime("%H:%M:%S"),
+                "status": "Ngủ gật" if sleeping > 0 else "Bình thường",
+                "students": students,
+                "accuracy": round(focus * 100, 1),
+                "sleeping": sleeping
+            })
+
+        # ===== averages =====
+        count = len(frame_list)
+
+        avg_students = round(total_students / count) if count else 0
+        avg_focus = round(total_focus / count, 3) if count else 0
+
+        # ===== duration =====
+        duration = 0
+        if session.start_time and session.end_time:
+            duration = int(
+                (session.end_time - session.start_time).total_seconds() / 60
+            )
 
         return {
             "session_id": session_id,
             "class_id": session.class_id,
-            "total_students": total_students,
+            "total_students": avg_students,
             "sleeping": total_sleeping,
-            "focus_rate": round(avg_focus, 3) if avg_focus else 0,
+            "focus_rate": avg_focus,
             "alerts": total_sleeping,
             "duration": duration,
             "frames": frame_list
         }
 
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+
+@router.delete("/session/{session_id}")
+@router.delete("/session/{session_id}")
+def delete_session(
+    session_id: int,
+    user_id: int = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        # =========================
+        # 1. GET SESSION + CHECK USER
+        # =========================
+        session = db.query(SessionModel).filter(
+            SessionModel.session_id == session_id,
+            SessionModel.user_id == user_id
+        ).first()
+
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        # =========================
+        # 2. BLOCK IF RUNNING
+        # =========================
+        state = CameraState()
+
+        if state.running and state.current_session_id == session_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Không thể xóa phiên đang chạy"
+            )
+
+        # =========================
+        # 3. DELETE FILES (SAFE PATH)
+        # =========================
+        BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+        frames = db.query(Frame).filter(Frame.session_id == session_id).all()
+
+        for frame in frames:
+            if frame.image_path:
+                full_path = os.path.join(BASE_DIR, frame.image_path)
+
+                if os.path.exists(full_path):
+                    try:
+                        os.remove(full_path)
+                    except Exception as e:
+                        logger.warning(f"❌ Cannot delete file {full_path}: {e}")
+
+        # =========================
+        # 4. MANUAL DELETE DB (SAFE - NO DEPENDENCY ON CASCADE)
+        # =========================
+
+        # AI results
+        from models.ai_result import AIResult
+
+        db.query(AIResult).filter(
+            AIResult.frame_id.in_(
+                db.query(Frame.frame_id).filter(Frame.session_id == session_id)
+            )
+        ).delete(synchronize_session=False)
+
+        # statistics
+        db.query(Statistic).filter(
+            Statistic.session_id == session_id
+        ).delete(synchronize_session=False)
+
+        # frames
+        db.query(Frame).filter(
+            Frame.session_id == session_id
+        ).delete(synchronize_session=False)
+
+        # session
+        db.delete(session)
+
+        db.commit()
+
+        return {
+            "message": "Xóa session thành công",
+            "session_id": session_id
+        }
+
     except HTTPException:
         raise
+
     except Exception as e:
-        logger.error(f"❌ Error fetching session detail by user {user_id}: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to fetch session detail")
+        db.rollback()
+        logger.error(f"❌ Delete session failed: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))

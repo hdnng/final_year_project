@@ -11,7 +11,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 # ===== PATH =====
 AI_MODEL_DIR = Path(__file__).resolve().parent
-MODEL_PATH = AI_MODEL_DIR / "weights" / "behavior_model_v2.keras"
+MODEL_PATH = AI_MODEL_DIR / "weights" / "behavior_model_final.keras"
 YOLO_PATH = AI_MODEL_DIR / "weights" / "yolov8n.pt"
 
 print(f"--- Loading AI Models from: {AI_MODEL_DIR} ---")
