@@ -1,13 +1,29 @@
+"""
+Structured logging configuration.
+
+Each logger writes to both console and a daily rotating log file
+under ``backend/logs/``.
+"""
+
 import logging
-import os
 from datetime import datetime
 from pathlib import Path
 
+_LOG_DIR = Path(__file__).resolve().parents[1] / "logs"
+_LOG_DIR.mkdir(exist_ok=True)
 
-def setup_logger(name: str, level=logging.INFO):
+_FORMATTER = logging.Formatter(
+    fmt="%(asctime)s | %(name)-30s | %(levelname)-8s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
+
+def setup_logger(name: str, level: int = logging.INFO) -> logging.Logger:
     """
-    Setup logger với file handler và console handler
-    Logs được lưu vào backend/logs/
+    Create or retrieve a logger with file + console handlers.
+
+    Loggers are idempotent — calling with the same *name* twice
+    returns the same instance without adding duplicate handlers.
     """
     logger = logging.getLogger(name)
 
@@ -16,26 +32,16 @@ def setup_logger(name: str, level=logging.INFO):
 
     logger.setLevel(level)
 
-    # Create logs directory
-    log_dir = Path(__file__).resolve().parents[1] / "logs"
-    log_dir.mkdir(exist_ok=True)
-
-    # File handler
-    log_file = log_dir / f"{datetime.now().strftime('%Y%m%d')}.log"
-    file_handler = logging.FileHandler(log_file)
+    # Daily log file
+    log_file = _LOG_DIR / f"{datetime.now().strftime('%Y%m%d')}.log"
+    file_handler = logging.FileHandler(log_file, encoding="utf-8")
     file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(_FORMATTER)
 
-    # Console handler
+    # Console output
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
-
-    # Formatter
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    file_handler.setFormatter(formatter)
-    console_handler.setFormatter(formatter)
+    console_handler.setFormatter(_FORMATTER)
 
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)
@@ -43,6 +49,6 @@ def setup_logger(name: str, level=logging.INFO):
     return logger
 
 
-def get_logger(name: str):
-    """Lấy logger instance"""
+def get_logger(name: str) -> logging.Logger:
+    """Convenience wrapper around :func:`setup_logger`."""
     return setup_logger(name)

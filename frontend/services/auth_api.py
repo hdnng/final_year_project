@@ -1,61 +1,50 @@
+"""Authentication API calls — login, register, logout, refresh."""
+
+import logging
+
 import requests
-import streamlit as st
 
-API_URL = "http://127.0.0.1:8000"
+from config import API_BASE_URL
+from utils.http import get_auth_headers
 
-def get_auth_headers():
-    """Get authorization headers if token exists"""
-    token = st.session_state.get("token")
-    if token:
-        return {"Authorization": f"Bearer {token}"}
-    return {}
+logger = logging.getLogger(__name__)
 
-def login(session, email, password):
-    """Đăng nhập - returns response object"""
-    response = session.post(
-        f"{API_URL}/users/login",
-        json={
-            "email": email,
-            "password": password
-        }
-    )
 
-    # Extract and return token if available
-    if response.status_code == 200:
-        try:
-            response.token = response.json().get("access_token")
-        except Exception:
-            response.token = None
-
-    return response
-
-def register(session, full_name, email, password):
-    """Đăng ký - returns response object"""
+def login(session: requests.Session, email: str, password: str):
+    """Authenticate and return the response (token in JSON body)."""
     return session.post(
-        f"{API_URL}/users/register",
-        json={
-            "email": email,
-            "password": password,
-            "full_name": full_name
-        }
+        f"{API_BASE_URL}/users/login",
+        json={"email": email, "password": password},
     )
 
-def logout(session):
-    """Đăng xuất - blacklist token và xóa session"""
+
+def register(session: requests.Session, full_name: str, email: str, password: str):
+    """Register a new user account."""
+    return session.post(
+        f"{API_BASE_URL}/users/register",
+        json={"email": email, "password": password, "full_name": full_name},
+    )
+
+
+def logout(session: requests.Session):
+    """Logout — blacklist the active token."""
     try:
-        headers = get_auth_headers()
-        response = session.post(f"{API_URL}/users/logout", headers=headers)
-        return response
-    except Exception as e:
-        print(f"Logout error: {e}")
+        return session.post(
+            f"{API_BASE_URL}/users/logout",
+            headers=get_auth_headers(),
+        )
+    except requests.RequestException as exc:
+        logger.warning(f"Logout API error: {exc}")
         return None
 
-def refresh_token(session):
-    """Refresh access token using refresh token"""
+
+def refresh_token(session: requests.Session):
+    """Refresh the access token using the refresh token cookie."""
     try:
-        headers = get_auth_headers()
-        response = session.post(f"{API_URL}/users/refresh", headers=headers)
-        return response
-    except Exception as e:
-        print(f"Refresh error: {e}")
+        return session.post(
+            f"{API_BASE_URL}/users/refresh",
+            headers=get_auth_headers(),
+        )
+    except requests.RequestException as exc:
+        logger.warning(f"Refresh token error: {exc}")
         return None

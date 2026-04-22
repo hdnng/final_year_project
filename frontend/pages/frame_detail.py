@@ -1,220 +1,272 @@
+"""Frame detail page — individual detections with inline editing."""
+
 import streamlit as st
-import requests
-import pandas as pd
-import plotly.express as px
 
 from components.app_sidebar import render_sidebar
-from utils.hide_streamlit_sidebar import hide_sidebar
+from config import API_BASE_URL
 from utils.auth_guard import require_auth
+from utils.hide_streamlit_sidebar import hide_sidebar
+from utils.http import init_session_state, get_auth_headers
 from utils.load_css import load_css
 
-# ================= CONFIG =================
+# ── Config ──────────────────────────────────────────────────
 st.set_page_config(layout="wide", page_title="Chi tiết khung hình")
 
-# ================= INIT =================
-if "client" not in st.session_state:
-    st.session_state.client = requests.Session()
+init_session_state()
 
 if "edit_result_id" not in st.session_state:
     st.session_state.edit_result_id = None
 
 require_auth()
+
+# ── Sidebar & Styles ───────────────────────────────────────
 hide_sidebar()
 render_sidebar(active="home")
-
 st.markdown(load_css("styles/sidebar.css"), unsafe_allow_html=True)
+st.markdown(load_css("styles/frame_detail.css"), unsafe_allow_html=True)
 
-API_URL = "http://127.0.0.1:8000/camera"
-
-
-# ================= AUTH =================
-def get_auth_headers():
-    token = st.session_state.get("access_token_value") or st.session_state.get("token")
-    return {"Authorization": f"Bearer {token}"} if token else {}
-
-
-# ================= FRAME ID =================
+# ── Frame ID ────────────────────────────────────────────────
 frame_id = st.session_state.get("frame_id")
-
 if not frame_id:
     st.warning("Không có frame để xem.")
     st.stop()
 
 
-# ================= LOAD DATA =================
-def load_data():
+# ── Load Data ───────────────────────────────────────────────
+def load_data() -> dict:
     res = st.session_state.client.get(
-        f"{API_URL}/frame-detail/{frame_id}",
-        headers=get_auth_headers()
+        f"{API_BASE_URL}/frames/detail/{frame_id}",
+        headers=get_auth_headers(),
     )
-
     if res.status_code != 200:
         st.error("Không lấy được dữ liệu frame.")
         st.stop()
-
     return res.json()
 
 
 data = load_data()
 
+total = data.get("total_students", 0)
+sleeping = data.get("sleeping_count", 0)
+focus = data.get("focus_count", 0)
+conf = round(data.get("avg_confidence", 0) * 100, 1)
 
-# ================= HEADER =================
-if st.button("← Quay lại danh sách frame"):
+# Percentages for distribution
+focus_pct = round(focus / total * 100) if total else 0
+sleeping_pct = round(sleeping / total * 100) if total else 0
+other_pct = max(0, 100 - focus_pct - sleeping_pct)
+
+# ── Header ──────────────────────────────────────────────────
+if st.button(f"← Chi tiết khung hình #{frame_id}"):
     st.switch_page("pages/session_analysis.py")
 
-st.markdown(
-    f'<div class="title">Chi tiết khung hình #{frame_id}</div>',
-    unsafe_allow_html=True
-)
+# ── Main Layout ─────────────────────────────────────────────
+left_col, right_col = st.columns([1.6, 1], gap="medium")
 
+# ── LEFT: Image Card ────────────────────────────────────────
+with left_col:
+    st.markdown(f"""
+    <div class="img-card">
+        <div class="img-card-header">
+            <span class="cam-label">
+                <span class="icon">📹</span>
+                Camera Phòng Học 01 - Khung hình #{frame_id}
+            </span>
+            <span class="live-badge"><span class="dot"></span> TRỰC TIẾP</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-# ================= TOP =================
-left, right = st.columns([1.4, 1])
-
-with left:
-    st.markdown('<div class="card">', unsafe_allow_html=True)
     st.image(data["image_path"], use_container_width=True)
+
+# ── RIGHT: Stats + Distribution ─────────────────────────────
+with right_col:
+    # Section title
+    st.markdown('<div class="right-section-title">Thống số khung hình</div>', unsafe_allow_html=True)
+
+    # KPI: Tổng học sinh
+    st.markdown(f"""
+    <div class="kpi-mini">
+        <div class="kpi-left">
+            <div class="kpi-label">TỔNG HỌC SINH</div>
+            <div class="kpi-val">{total}</div>
+        </div>
+        <span class="kpi-change up">↗ 01%</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # KPI: Buồn ngủ
+    sleep_change_cls = "down" if sleeping > 0 else "up"
+    st.markdown(f"""
+    <div class="kpi-mini alert">
+        <div class="kpi-left">
+            <div class="kpi-label">HỌC SINH BUỒN NGỦ</div>
+            <div class="kpi-val red">{sleeping:02d}</div>
+        </div>
+        <span class="kpi-change {sleep_change_cls}">↑ +{sleeping_pct}%</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # KPI: Confidence
+    st.markdown(f"""
+    <div class="kpi-mini">
+        <div class="kpi-left">
+            <div class="kpi-label">ĐỘ TIN CẬY AI</div>
+            <div class="kpi-val blue">{conf}%</div>
+        </div>
+        <span class="kpi-change neutral">~ 0.0%</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Distribution section
+    st.markdown('<div class="dist-section">', unsafe_allow_html=True)
+    st.markdown('<div class="dist-title">Phân bổ trạng thái</div>', unsafe_allow_html=True)
+
+    # Tập trung
+    st.markdown(f"""
+    <div class="dist-row">
+        <span class="dist-label">Tập trung</span>
+        <span class="dist-pct">{focus_pct}%</span>
+    </div>
+    """, unsafe_allow_html=True)
+    st.progress(focus_pct / 100 if focus_pct > 0 else 0)
+
+    # Buồn ngủ
+    st.markdown(f"""
+    <div class="dist-row">
+        <span class="dist-label">Buồn ngủ</span>
+        <span class="dist-pct">{sleeping_pct}%</span>
+    </div>
+    """, unsafe_allow_html=True)
+    st.progress(sleeping_pct / 100 if sleeping_pct > 0 else 0)
+
+    # Xao nhãng
+    st.markdown(f"""
+    <div class="dist-row">
+        <span class="dist-label">Xao nhãng</span>
+        <span class="dist-pct">{other_pct}%</span>
+    </div>
+    """, unsafe_allow_html=True)
+    st.progress(other_pct / 100 if other_pct > 0 else 0)
+
     st.markdown('</div>', unsafe_allow_html=True)
 
-with right:
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-
-    r1, r2 = st.columns(2)
-
-    with r1:
-        st.markdown(f"""
-        <div class="metric">
-            <div class="metric-title">TỔNG HỌC SINH</div>
-            <div class="metric-value">{data.get("total_students",0)}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with r2:
-        st.markdown(f"""
-        <div class="metric">
-            <div class="metric-title">BUỒN NGỦ</div>
-            <div class="metric-value red">{data.get("sleeping_count",0)}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    r3, r4 = st.columns(2)
-
-    with r3:
-        st.markdown(f"""
-        <div class="metric">
-            <div class="metric-title">TẬP TRUNG</div>
-            <div class="metric-value green">{data.get("focus_count",0)}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with r4:
-        conf = round(data.get("avg_confidence", 0) * 100, 1)
-        st.markdown(f"""
-        <div class="metric">
-            <div class="metric-title">ĐỘ TIN CẬY</div>
-            <div class="metric-value">{conf}%</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    chart_data = pd.DataFrame({
-        "Trạng thái": ["Tập trung", "Buồn ngủ"],
-        "Số lượng": [data.get("focus_count",0), data.get("sleeping_count",0)]
-    })
-
-    fig = px.pie(chart_data, names="Trạng thái", values="Số lượng", hole=0.45)
-    fig.update_layout(margin=dict(l=0, r=0, t=20, b=0), height=320)
-
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
-
-# ================= TABLE =================
-st.markdown("### Danh sách phát hiện")
+# ── Detections Table ────────────────────────────────────────
+st.markdown("""
+<div class="table-card">
+    <div class="table-card-title">Danh sách phát hiện</div>
+</div>
+""", unsafe_allow_html=True)
 
 if st.session_state.get("frame_cache_id") != frame_id:
     st.session_state.edit_result_id = None
     st.session_state.frame_cache_id = frame_id
 
+detections = data.get("detections", [])
 
-for row in data.get("detections", []):
+if not detections:
+    st.info("Không có kết quả phát hiện.")
+else:
+    # Table header
+    h1, h2, h3, h4, h5 = st.columns([1.2, 1.5, 1.2, 1.2, 0.8])
+    h1.markdown("<div class='tbl-head'>ID HỌC SINH</div>", unsafe_allow_html=True)
+    h2.markdown("<div class='tbl-head'>HỌ VÀ TÊN</div>", unsafe_allow_html=True)
+    h3.markdown("<div class='tbl-head'>TRẠNG THÁI</div>", unsafe_allow_html=True)
+    h4.markdown("<div class='tbl-head'>ĐỘ TIN CẬY</div>", unsafe_allow_html=True)
+    h5.markdown("<div class='tbl-head'>THAO TÁC</div>", unsafe_allow_html=True)
 
-    result_id = row.get("result_id")
-    if not result_id:
-        continue  # tránh crash
+    # Table rows
+    for row in detections:
+        result_id = row.get("result_id")
+        if not result_id:
+            continue
 
-    # ================= FINAL STATUS =================
-    status = row.get("user_label")
-    if status is None or status == "":
-        status = row.get("status", "Unknown")
+        status = row.get("user_label") or row.get("status", "Unknown")
+        is_edit = st.session_state.edit_result_id == result_id
+        confidence = row.get("confidence", 0) * 100
 
-    is_edit = st.session_state.edit_result_id == result_id
+        c1, c2, c3, c4, c5 = st.columns([1.2, 1.5, 1.2, 1.2, 0.8])
 
-    col1, col2, col3, col4 = st.columns([2, 2, 2, 1])
-
-    # ================= VIEW =================
-    if not is_edit:
-
-        with col1:
-            st.write(row.get("student_id", "-"))
-
-        with col2:
-            color = "green" if status == "Normal" else "red"
-            st.markdown(
-                f"<span style='color:{color};font-weight:600'>{status}</span>",
-                unsafe_allow_html=True
+        if not is_edit:
+            # View mode
+            c1.markdown(
+                f"<div class='tbl-cell'>{row.get('student_id', '-')}</div>",
+                unsafe_allow_html=True,
             )
 
-        with col3:
-            st.write(f"{row.get('confidence',0)*100:.1f}%")
-
-        with col4:
-            if st.button("✏️", key=f"edit_{result_id}"):
-                st.session_state.edit_result_id = result_id
-                st.rerun()
-
-
-    # ================= EDIT =================
-    else:
-
-        with col1:
-            st.write(row.get("student_id", "-"))
-
-        with col2:
-            new_status = st.selectbox(
-                "Trạng thái",
-                ["Normal", "Sleeping"],
-                index=0 if status == "Normal" else 1,
-                key=f"edit_{result_id}"
+            # Generate a display name
+            idx = row.get("student_id", "HS0").replace("HS", "")
+            c2.markdown(
+                f"<div class='tbl-cell'>Học sinh {idx}</div>",
+                unsafe_allow_html=True,
             )
 
-        with col3:
-            st.write(f"{row.get('confidence',0)*100:.1f}%")
+            # Status badge
+            if "Sleeping" in status:
+                tag_cls = "sleeping"
+                tag_text = "Buồn ngủ"
+            elif "Normal" in status:
+                tag_cls = "normal"
+                tag_text = "Tập trung"
+            else:
+                tag_cls = "distracted"
+                tag_text = "Xao nhãng"
 
-        with col4:
-            c1, c2 = st.columns(2)
+            c3.markdown(
+                f"<div class='tbl-cell'><span class='status-tag {tag_cls}'>{tag_text}</span></div>",
+                unsafe_allow_html=True,
+            )
 
-            # SAVE
-            with c1:
-                if st.button("💾", key=f"save_{result_id}"):
+            c4.markdown(
+                f"<div class='tbl-cell'>{confidence:.1f}%</div>",
+                unsafe_allow_html=True,
+            )
 
-                    res = st.session_state.client.patch(
-                        f"{API_URL.replace('/camera','')}/ai-result/{result_id}",
-                        json={"status": new_status},
-                        headers=get_auth_headers()
-                    )
+            with c5:
+                if st.button("✏️", key=f"edit_{result_id}"):
+                    st.session_state.edit_result_id = result_id
+                    st.rerun()
+        else:
+            # Edit mode
+            c1.markdown(
+                f"<div class='tbl-cell'>{row.get('student_id', '-')}</div>",
+                unsafe_allow_html=True,
+            )
 
-                    if res.status_code == 200:
-                        st.success("Đã cập nhật")
+            idx = row.get("student_id", "HS0").replace("HS", "")
+            c2.markdown(
+                f"<div class='tbl-cell'>Học sinh {idx}</div>",
+                unsafe_allow_html=True,
+            )
 
-                        # reload data để tránh stale UI
-                        data = load_data()
+            with c3:
+                new_status = st.selectbox(
+                    "Trạng thái",
+                    ["Normal", "Sleeping"],
+                    index=0 if status == "Normal" else 1,
+                    key=f"sel_{result_id}",
+                    label_visibility="collapsed",
+                )
 
+            c4.markdown(
+                f"<div class='tbl-cell'>{confidence:.1f}%</div>",
+                unsafe_allow_html=True,
+            )
+
+            with c5:
+                bc1, bc2 = st.columns(2)
+                with bc1:
+                    if st.button("💾", key=f"save_{result_id}"):
+                        res = st.session_state.client.patch(
+                            f"{API_BASE_URL}/ai-result/{result_id}",
+                            json={"status": new_status},
+                            headers=get_auth_headers(),
+                        )
+                        if res.status_code == 200:
+                            st.success("Đã cập nhật")
+                            st.session_state.edit_result_id = None
+                            st.rerun()
+                with bc2:
+                    if st.button("❌", key=f"cancel_{result_id}"):
                         st.session_state.edit_result_id = None
                         st.rerun()
-
-            # CANCEL
-            with c2:
-                if st.button("❌", key=f"cancel_{result_id}"):
-                    st.session_state.edit_result_id = None
-                    st.rerun()

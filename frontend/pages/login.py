@@ -1,27 +1,28 @@
-import streamlit as st
-from services.auth_api import login
+"""Login page."""
+
 import requests
+import streamlit as st
 from streamlit_cookies_manager import EncryptedCookieManager
 
-# ===== CONFIG =====
+from config import COOKIE_PASSWORD
+from services.auth_api import login
+
+# ── Config ──────────────────────────────────────────────────
 st.set_page_config(layout="centered", initial_sidebar_state="collapsed")
 
-# ===== COOKIE =====
-cookies = EncryptedCookieManager(password="secret_key")
+cookies = EncryptedCookieManager(password=COOKIE_PASSWORD)
 if not cookies.ready():
     st.stop()
 
-# ===== INIT CLIENT =====
 if "client" not in st.session_state:
     st.session_state.client = requests.Session()
 
-# ẩn sidebar
+# Hide sidebar
 st.markdown("""
-<style>
-[data-testid="stSidebar"] {display: none;}
-</style>
+<style>[data-testid="stSidebar"] {display: none;}</style>
 """, unsafe_allow_html=True)
 
+# ── Form ────────────────────────────────────────────────────
 st.title("Đăng nhập")
 
 email = st.text_input("Email")
@@ -36,23 +37,22 @@ if st.button("Đăng nhập"):
 
         if res.status_code == 200:
             data = res.json()
-
             access_token = data.get("access_token")
             refresh_token = data.get("refresh_token")
 
             if access_token:
-                # ✅ Lưu vào cookie (QUAN TRỌNG)
+                # Persist to cookies
                 cookies["access_token"] = access_token
                 if refresh_token:
                     cookies["refresh_token"] = refresh_token
                 cookies.save()
 
-                # ✅ Lưu tạm vào session
+                # Persist to session state
                 st.session_state["access_token_value"] = access_token
                 st.session_state["refresh_token_value"] = refresh_token
                 st.session_state["is_login"] = True
 
-                # set cookie cho client gọi API
+                # Set on HTTP client for API calls
                 st.session_state.client.cookies.set("access_token", access_token)
                 if refresh_token:
                     st.session_state.client.cookies.set("refresh_token", refresh_token)
@@ -65,15 +65,16 @@ if st.button("Đăng nhập"):
         else:
             st.error(f"❌ Lỗi: {res.text}")
 
+# ── Footer ──────────────────────────────────────────────────
+st.divider()
 
-st.divider() 
-col1, col2 = st.columns(2) 
-with col1: 
-    st.write("Chưa có tài khoản?") 
-    if st.button("📝 Đăng ký", use_container_width=True): 
-        st.switch_page("pages/register.py") 
+col1, col2 = st.columns(2)
+with col1:
+    st.write("Chưa có tài khoản?")
+    if st.button("📝 Đăng ký", use_container_width=True):
+        st.switch_page("pages/register.py")
 
-with col2: 
-    st.write("") 
-    if st.button("🔧 Quên mật khẩu?", use_container_width=True): 
+with col2:
+    st.write("")
+    if st.button("🔧 Quên mật khẩu?", use_container_width=True):
         st.info("Tính năng đang phát triển")

@@ -1,9 +1,22 @@
-import streamlit as st
+"""
+Authentication guard — redirects unauthenticated users to login.
+"""
+
 import requests
+import streamlit as st
 from streamlit_cookies_manager import EncryptedCookieManager
 
-def require_auth():
-    cookies = EncryptedCookieManager(password="secret_key")
+from config import API_BASE_URL, COOKIE_PASSWORD
+
+
+def require_auth() -> None:
+    """
+    Verify the user is authenticated.
+
+    Restores tokens from cookies into the HTTP client, then validates
+    against the backend. Redirects to login on failure.
+    """
+    cookies = EncryptedCookieManager(password=COOKIE_PASSWORD)
     if not cookies.ready():
         st.stop()
 
@@ -21,20 +34,18 @@ def require_auth():
         client.cookies.set("refresh_token", refresh_token)
 
     if not access_token:
-        st.error("❌ Chưa đăng nhập")
+        st.error("Please log in to continue")
         st.switch_page("pages/login.py")
         st.stop()
 
     try:
-        res = client.get("http://127.0.0.1:8000/users/profile", timeout=5)
-
+        res = client.get(f"{API_BASE_URL}/users/profile", timeout=5)
         if res.status_code != 200:
             cookies.clear()
-            st.error("❌ Phiên hết hạn")
+            st.error("Session expired")
             st.switch_page("pages/login.py")
             st.stop()
-
-    except:
-        st.error("❌ Lỗi kết nối")
+    except requests.RequestException:
+        st.error("Connection error")
         st.switch_page("pages/login.py")
         st.stop()

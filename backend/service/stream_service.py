@@ -1,13 +1,21 @@
-import cv2
+"""
+MJPEG streaming generator for live video feed.
+"""
+
 import time
 
+import cv2
+
 from service.camera_state import CameraState
+
+JPEG_QUALITY = 70
 
 
 def gen_frames():
     """
-    Generator để stream video frames trong MJPEG format
-    Sử dụng latest_frame từ camera state
+    Yield MJPEG frames from the latest camera state.
+
+    Used by the ``/camera/video_feed`` endpoint as a streaming response.
     """
     state = CameraState()
 
@@ -16,19 +24,17 @@ def gen_frames():
             time.sleep(0.05)
             continue
 
-        # Compress JPEG với quality 70%
         ret, buffer = cv2.imencode(
-            '.jpg',
+            ".jpg",
             state.latest_frame,
-            [int(cv2.IMWRITE_JPEG_QUALITY), 70]
+            [int(cv2.IMWRITE_JPEG_QUALITY), JPEG_QUALITY],
         )
-
         if not ret:
             continue
 
         yield (
-            b'--frame\r\n'
-            b'Content-Type: image/jpeg\r\n\r\n' +
-            buffer.tobytes() +
-            b'\r\n'
+            b"--frame\r\n"
+            b"Content-Type: image/jpeg\r\n\r\n"
+            + buffer.tobytes()
+            + b"\r\n"
         )

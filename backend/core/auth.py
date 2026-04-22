@@ -1,78 +1,76 @@
-import os
-from dotenv import load_dotenv
+"""
+JWT token creation and verification.
+"""
+
+from datetime import datetime, timedelta, timezone
+
 from jose import JWTError, jwt
-from datetime import datetime, timedelta
 
-# =========================
-# LOAD ENV VARIABLES
-# =========================
-load_dotenv()
-
-# =========================
-# SECURITY CONFIG
-# =========================
-SECRET_KEY = os.getenv("SECRET_KEY", "default-secret-key-change-this")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
-REFRESH_TOKEN_EXPIRE_DAYS = 7
-
-if os.getenv("ENVIRONMENT") == "production" and SECRET_KEY == "default-secret-key-change-this":
-    raise ValueError("SECRET_KEY must be set in .env for production")
+from core.config import settings
 
 
-def create_access_token(data: dict, expires_delta: timedelta = None):
+def create_access_token(
+    data: dict,
+    expires_delta: timedelta | None = None,
+) -> tuple[str, datetime]:
     """
-    Create JWT access token
+    Create a JWT access token.
 
     Args:
-        data: Payload (e.g., {"user_id": 1})
-        expires_delta: Custom expiration time (default: 60 minutes)
+        data: Payload data (e.g. {"user_id": 1}).
+        expires_delta: Custom TTL. Defaults to ACCESS_TOKEN_EXPIRE_MINUTES.
+
+    Returns:
+        Tuple of (encoded_token, expiry_datetime).
     """
     to_encode = data.copy()
-
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-
+    expire = datetime.now(timezone.utc) + (
+        expires_delta
+        or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
     to_encode.update({"exp": expire, "type": "access"})
+    token = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return token, expire
 
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt, expire
 
-
-def create_refresh_token(data: dict, expires_delta: timedelta = None):
+def create_refresh_token(
+    data: dict,
+    expires_delta: timedelta | None = None,
+) -> tuple[str, datetime]:
     """
-    Create JWT refresh token (longer expiration)
+    Create a JWT refresh token with a longer expiration.
 
     Args:
-        data: Payload (e.g., {"user_id": 1})
-        expires_delta: Custom expiration time (default: 7 days)
+        data: Payload data (e.g. {"user_id": 1}).
+        expires_delta: Custom TTL. Defaults to REFRESH_TOKEN_EXPIRE_DAYS.
+
+    Returns:
+        Tuple of (encoded_token, expiry_datetime).
     """
     to_encode = data.copy()
-
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-
+    expire = datetime.now(timezone.utc) + (
+        expires_delta
+        or timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    )
     to_encode.update({"exp": expire, "type": "refresh"})
+    token = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return token, expire
 
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt, expire
 
-
-def verify_token(token: str, token_type: str = "access"):
+def verify_token(token: str, token_type: str = "access") -> dict | None:
     """
-    Verify JWT token type and extract payload
+    Decode and verify a JWT token.
+
+    Returns the payload dict if valid, or None if verification fails.
     """
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-
-        # Verify token type
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
+        )
         if payload.get("type") != token_type:
-            raise ValueError(f"Invalid token type. Expected {token_type}")
-
+            return None
         return payload
     except JWTError:
         return None

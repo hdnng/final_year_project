@@ -1,24 +1,21 @@
-import streamlit as st
-from services.auth_api import register
-import requests
+"""Registration page."""
 
-# ===== INIT CLIENT =====
-if "client" not in st.session_state:
-    st.session_state.client = requests.Session()
-if "access_token_value" not in st.session_state:
-    st.session_state["access_token_value"] = None
-if "refresh_token_value" not in st.session_state:
-    st.session_state["refresh_token_value"] = None
+import requests
+import streamlit as st
+
+from services.auth_api import register
+from utils.http import init_session_state
+
+# ── Init ────────────────────────────────────────────────────
+init_session_state()
 
 st.set_page_config(layout="centered", initial_sidebar_state="collapsed")
 
-# ẩn sidebar
 st.markdown("""
-<style>
-[data-testid="stSidebar"] {display: none;}
-</style>
+<style>[data-testid="stSidebar"] {display: none;}</style>
 """, unsafe_allow_html=True)
 
+# ── Form ────────────────────────────────────────────────────
 st.title("Đăng ký")
 
 name = st.text_input("Họ tên")
@@ -26,7 +23,7 @@ email = st.text_input("Email")
 password = st.text_input("Mật khẩu", type="password")
 confirm = st.text_input("Xác nhận mật khẩu", type="password")
 
-# ===== PASSWORD STRENGTH CHECK =====
+# Password strength indicator
 if password:
     if len(password) < 6:
         st.warning("🔴 Mật khẩu phải ít nhất 6 ký tự")
@@ -38,7 +35,7 @@ if password:
         st.success("🟢 Mật khẩu mạnh")
 
 if st.button("Đăng ký"):
-    # ===== VALIDATION =====
+    # Validation
     if not name or not email or not password or not confirm:
         st.error("❌ Vui lòng nhập đầy đủ thông tin")
     elif password != confirm:
@@ -56,27 +53,26 @@ if st.button("Đăng ký"):
             if res.status_code == 200:
                 st.success("✅ Đăng ký thành công! Vui lòng đăng nhập")
                 st.switch_page("pages/login.py")
-
             elif res.status_code == 409:
                 st.error("❌ Email này đã được đăng ký")
-
             elif res.status_code == 429:
+                detail = "Quá nhiều yêu cầu đăng ký"
                 try:
-                    detail = res.json().get("detail", "Quá nhiều yêu cầu đăng ký")
+                    detail = res.json().get("detail", detail)
                 except Exception:
-                    detail = "Quá nhiều yêu cầu đăng ký. Vui lòng thử lại sau"
+                    pass
                 st.error(f"🔒 {detail}")
-
             elif res.status_code == 422:
                 st.error("❌ Dữ liệu không hợp lệ")
-
             else:
+                detail = res.text
                 try:
-                    detail = res.json().get("detail", res.text)
+                    detail = res.json().get("detail", detail)
                 except Exception:
-                    detail = res.text
+                    pass
                 st.error(f"❌ Lỗi: {detail}")
 
+# ── Footer ──────────────────────────────────────────────────
 st.divider()
 
 if st.button("⬅️ Quay lại đăng nhập", use_container_width=True):

@@ -1,239 +1,320 @@
+"""Session detail page — KPI cards, donut chart, and frame table."""
+
+import math
+
 import streamlit as st
-import pandas as pd
-import requests
 import plotly.graph_objects as go
 
+from components.app_sidebar import render_sidebar
+from config import API_BASE_URL
 from utils.auth_guard import require_auth
-from utils.load_css import load_css
 from utils.hide_streamlit_sidebar import hide_sidebar
+from utils.http import init_session_state, get_auth_headers
+from utils.load_css import load_css
 
-# ================= CONFIG =================
+# ── Config ──────────────────────────────────────────────────
 st.set_page_config(layout="wide", page_title="Chi tiết phiên")
 
-# ================= INIT SESSION =================
-if "is_login" not in st.session_state:
-    st.session_state["is_login"] = False
-if "access_token_value" not in st.session_state:
-    st.session_state["access_token_value"] = None
-if "refresh_token_value" not in st.session_state:
-    st.session_state["refresh_token_value"] = None
-if "client" not in st.session_state:
-    st.session_state.client = requests.Session()
-
+init_session_state()
 require_auth()
 
-API_URL = "http://127.0.0.1:8000"
+if "detail_page" not in st.session_state:
+    st.session_state.detail_page = 1
 
-# ================= SIDEBAR =================
+# ── Sidebar & Styles ────────────────────────────────────────
 hide_sidebar()
 st.markdown(load_css("styles/sidebar.css"), unsafe_allow_html=True)
-
-from components.app_sidebar import render_sidebar
 render_sidebar(active="history")
-
-# ================= CSS =================
 st.markdown(load_css("styles/session_detail.css"), unsafe_allow_html=True)
 
-# ================= GET SESSION =================
+# ── Session ID ──────────────────────────────────────────────
 session_id = st.session_state.get("selected_session")
-
 if not session_id:
     st.error("Thiếu session_id")
     st.stop()
 
-# ================= API =================
-def get_auth_headers():
-    token = st.session_state.get("token")
-    if token:
-        return {"Authorization": f"Bearer {token}"}
-    return {}
 
-def get_detail():
+# ── API ─────────────────────────────────────────────────────
+def get_detail() -> dict | None:
     try:
         res = st.session_state.client.get(
-            f"{API_URL}/history/session/{session_id}",
-            headers=get_auth_headers()
+            f"{API_BASE_URL}/history/session/{session_id}",
+            headers=get_auth_headers(),
         )
         if res.status_code == 200:
             return res.json()
         st.error("Không lấy được dữ liệu")
         return None
-    except Exception as e:
-        st.error(str(e))
+    except Exception as exc:
+        st.error(str(exc))
         return None
+
 
 data = get_detail()
 if not data:
     st.stop()
 
 frames = data.get("frames", [])
+total_students = data.get("total_students", 0)
+sleeping = data.get("sleeping", 0)
+alerts = data.get("alerts", 0)
+duration = data.get("duration", 0)
+focus_rate = data.get("focus_rate", 0)
+class_id = data.get("class_id", "N/A")
 
-# ================= HEADER =================
+# Compute percentages for chart
+focus_pct = round(focus_rate * 100)
+sleeping_pct = 100 - focus_pct
+
+# ── Back Button ─────────────────────────────────────────────
+if st.button("← Chi tiết lịch sử phiên"):
+    st.switch_page("pages/history.py")
+
+# ── Page Header ─────────────────────────────────────────────
+status_class = "status-done" if duration > 0 else "status-running"
+status_text = "HOÀN THÀNH" if duration > 0 else "ĐANG CHẠY"
+
 st.markdown(f"""
-<div class='title-main'>
-Chi tiết phiên #SESS-{session_id}
+<div class="page-header">
+    <span class="title">Chi tiết phiên #SESS-{session_id}</span>
+    <span class="status-badge {status_class}">{status_text}</span>
 </div>
 """, unsafe_allow_html=True)
 
-# ================= TOP GRID =================
-left, right = st.columns([1, 2.3], gap="large")
+# ── Top Row: Chart + 2 KPI Cards ────────────────────────────
+top1, top2, top3 = st.columns([1, 1, 1], gap="medium")
 
-# ---------- LEFT CHART ----------
-with left:
-    total_students = data.get("total_students", 0)
-    sleeping = data.get("sleeping", 0)
-    focus = max(total_students - sleeping, 0)
-
+# -- Donut Chart --
+with top1:
     fig = go.Figure(data=[go.Pie(
         labels=["Tập trung", "Buồn ngủ"],
-        values=[focus, max(sleeping,1)],
-        hole=.72,
+        values=[max(focus_pct, 1), max(sleeping_pct, 1)],
+        hole=0.72,
         marker=dict(colors=["#1677ff", "#ef4444"]),
-        textinfo="none"
+        textinfo="none",
+        hoverinfo="label+percent",
+        sort=False,
     )])
-
     fig.update_layout(
-        height=260,
-        margin=dict(l=0,r=0,t=0,b=0),
+        height=200,
+        margin=dict(l=10, r=10, t=10, b=10),
         showlegend=False,
-        annotations=[
-            dict(
-                text=f"Tập trung<br><b>{data.get('focus_rate',0)*100:.0f}%</b>",
-                showarrow=False,
-                font=dict(size=16)
-            )
-        ]
+        annotations=[dict(
+            text=f"Tập trung<br><b style='font-size:28px'>{focus_pct}%</b>",
+            showarrow=False,
+            font=dict(size=13, color="#475569"),
+        )],
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
     )
 
-    # ✅ container thật (QUAN TRỌNG)
-    chart_box = st.container()
+    st.markdown("""
+    <div class="chart-card">
+        <div class="card-title">🎯 Phân bổ hành vi</div>
+    """, unsafe_allow_html=True)
 
-    with chart_box:
-        st.markdown("### 🎯 Phân bố hành vi")
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
-        st.plotly_chart(
-            fig,
-            use_container_width=True,
-            config={"displayModeBar": False}
-        )
-
-        st.markdown(f"""
-        <div style="margin-top:10px;">
-            <div>🔵 Tập trung <b style='float:right'>{data.get('focus_rate',0)*100:.0f}%</b></div>
-            <div style='margin-top:6px;'>🔴 Buồn ngủ <b style='float:right'>{sleeping}</b></div>
+    st.markdown(f"""
+        <div class="legend-list">
+            <div class="legend-item">
+                <span><span class="legend-dot blue"></span>Tập trung</span>
+                <span class="legend-val">{focus_pct}%</span>
+            </div>
+            <div class="legend-item">
+                <span><span class="legend-dot red"></span>Buồn ngủ</span>
+                <span class="legend-val">{sleeping_pct}%</span>
+            </div>
         </div>
-        """, unsafe_allow_html=True)
-# ---------- RIGHT KPI ----------
-with right:
-    row1 = st.columns(2, gap="large")
-    row2 = st.columns(2, gap="large")
+    </div>
+    """, unsafe_allow_html=True)
 
-    with row1[0]:
-        st.markdown(f"""
-        <div class='card'>
-            <div class='sub'>Tổng số sinh viên</div>
-            <div class='metric'>{data.get("total_students",0)}</div>
+# -- Right column: Tổng số sinh viên + Tổng số cảnh báo --
+with top2:
+    st.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">Tổng số sinh viên</div>
+        <div>
+            <span class="kpi-value">{total_students}</span>
+            <span class="kpi-unit">người</span>
         </div>
-        """, unsafe_allow_html=True)
+        <div class="kpi-sub green">↗ Đầy đủ 100%</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    with row1[1]:
-        st.markdown(f"""
-        <div class='card'>
-            <div class='sub'>Độ chính xác trung bình</div>
-            <div class='metric metric-blue'>{data.get("focus_rate",0)*100:.1f}%</div>
-            <div class='small-note'>Tính từ AI Recognition</div>
+    warn_sub = "⚠ Cần lưu ý" if alerts > 0 else "✓ Tốt"
+    warn_cls = "warn" if alerts > 0 else "green"
+    st.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">Tổng số cảnh báo</div>
+        <div>
+            <span class="kpi-value orange">{alerts:02d}</span>
+            <span class="kpi-unit">lần</span>
         </div>
-        """, unsafe_allow_html=True)
+        <div class="kpi-sub {warn_cls}">{warn_sub}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    with row2[0]:
-        st.markdown(f"""
-        <div class='card'>
-            <div class='sub'>Tổng số cảnh báo</div>
-            <div class='metric metric-orange'>{data.get("alerts",0)}</div>
+# -- Right column: Độ chính xác + Thời gian học --
+with top3:
+    avg_acc = focus_rate * 100
+    st.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">Độ chính xác trung bình</div>
+        <div>
+            <span class="kpi-value blue">{avg_acc:.1f}</span>
+            <span class="kpi-unit">%</span>
         </div>
-        """, unsafe_allow_html=True)
+        <div class="kpi-sub">Tính dựa trên dữ liệu AI Recognition</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    with row2[1]:
-        st.markdown(f"""
-        <div class='card'>
-            <div class='sub'>Thời gian học thực tế</div>
-            <div class='metric'>{data.get("duration",0)}</div>
-            <div class='small-note'>phút</div>
+    time_sub = "Bắt đầu đúng giờ" if duration > 0 else "Đang diễn ra"
+    st.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">Thời gian học thực tế</div>
+        <div>
+            <span class="kpi-value">{duration}</span>
+            <span class="kpi-unit">phút</span>
         </div>
-        """, unsafe_allow_html=True)
+        <div class="kpi-sub green">{time_sub}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-# ================= TABLE =================
-st.markdown("<br>", unsafe_allow_html=True)
-st.markdown("<div class='table-box'>", unsafe_allow_html=True)
-st.markdown("### Danh sách khung hình")
+# ── Frame Table ─────────────────────────────────────────────
+PAGE_SIZE = 5
+total_rows = len(frames)
+total_pages = max(1, math.ceil(total_rows / PAGE_SIZE))
+
+# Clamp page
+st.session_state.detail_page = min(st.session_state.detail_page, total_pages)
+page = st.session_state.detail_page
+
+start = (page - 1) * PAGE_SIZE
+end = start + PAGE_SIZE
+page_frames = frames[start:end]
+
+st.markdown(f"""
+<div class="table-section">
+    <div class="table-header">
+        <span class="table-title">Danh sách khung hình (Interval 30s)</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 if not frames:
     st.info("Chưa có dữ liệu frame")
 else:
-    df = pd.DataFrame(frames)
+    # Table header
+    h1, h2, h3, h4, h5, h6 = st.columns([1.2, 1.2, 1, 1.5, 1, 1])
+    h1.markdown("<div class='tbl-head'>MỐC THỜI GIAN</div>", unsafe_allow_html=True)
+    h2.markdown("<div class='tbl-head'>TRẠNG THÁI</div>", unsafe_allow_html=True)
+    h3.markdown("<div class='tbl-head'>SỐ LƯỢNG SINH VIÊN</div>", unsafe_allow_html=True)
+    h4.markdown("<div class='tbl-head'>ĐỘ CHÍNH XÁC</div>", unsafe_allow_html=True)
+    h5.markdown("<div class='tbl-head'>CA BUỒN NGỦ</div>", unsafe_allow_html=True)
+    h6.markdown("<div class='tbl-head'>THAO TÁC</div>", unsafe_allow_html=True)
 
-    page_size = 5
-    total_rows = len(df)
-    total_pages = max((total_rows - 1)//page_size + 1, 1)
+    # Table rows
+    for row in page_frames:
+        c1, c2, c3, c4, c5, c6 = st.columns([1.2, 1.2, 1, 1.5, 1, 1])
 
-    if "detail_page" not in st.session_state:
-        st.session_state.detail_page = 1
+        # Time
+        c1.markdown(
+            f"<div class='tbl-cell'>{row['time']}</div>",
+            unsafe_allow_html=True,
+        )
 
-    start = (st.session_state.detail_page - 1) * page_size
-    end = start + page_size
-    df_page = df.iloc[start:end]
+        # Status badge
+        is_alert = row["status"] != "Normal"
+        badge_cls = "badge-warning" if is_alert else "badge-normal"
+        badge_text = "CẢNH BÁO" if is_alert else "BÌNH THƯỜNG"
+        c2.markdown(
+            f"<div class='tbl-cell'><span class='badge {badge_cls}'>{badge_text}</span></div>",
+            unsafe_allow_html=True,
+        )
 
-    head = st.columns(6)
-    titles = ["Mốc thời gian","Trạng thái","Số SV","Độ chính xác","Buồn ngủ","Thao tác"]
+        # Students
+        c3.markdown(
+            f"<div class='tbl-cell'>{row['students']} SV</div>",
+            unsafe_allow_html=True,
+        )
 
-    for i, t in enumerate(titles):
-        head[i].markdown(f"<div class='head'>{t}</div>", unsafe_allow_html=True)
-
-    for idx, row in df_page.iterrows():
-        cols = st.columns(6)
-
-        badge = "badge-alert" if row["status"] != "Bình thường" else "badge-ok"
-
-        cols[0].markdown(f"<div class='cell'>{row['time']}</div>", unsafe_allow_html=True)
-        cols[1].markdown(f"<div class='cell'><span class='{badge}'>{row['status']}</span></div>", unsafe_allow_html=True)
-        cols[2].markdown(f"<div class='cell'>{row['students']} SV</div>", unsafe_allow_html=True)
-
-        cols[3].markdown(f"""
-        <div class='cell'>
-            <b>{row['accuracy']}%</b>
-            <div class='progress'>
-                <div class='progress-bar' style='width:{row["accuracy"]}%'></div>
+        # Accuracy with progress bar
+        acc = row["accuracy"]
+        c4.markdown(f"""
+        <div class='tbl-cell'>
+            <div class="accuracy-bar">
+                <div class="bar-track"><div class="bar-fill" style="width:{acc}%"></div></div>
+                <span class="bar-value">{acc}%</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-        cols[4].markdown(f"<div class='cell'>{row['sleeping']}</div>", unsafe_allow_html=True)
+        # Sleeping count
+        sl = row["sleeping"]
+        if sl > 0:
+            c5.markdown(
+                f"<div class='tbl-cell'><span class='sleep-count'>{sl:02d} ca</span></div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            c5.markdown(
+                "<div class='tbl-cell'><span class='sleep-none'>—</span></div>",
+                unsafe_allow_html=True,
+            )
 
-        with cols[5]:
-            if st.button("Xem", key=f"{row['frame_id']}"):
+        # Action
+        with c6:
+            if st.button("Xem chi tiết", key=f"view_{row['frame_id']}"):
                 st.session_state["frame_id"] = row["frame_id"]
                 st.switch_page("pages/frame_detail.py")
 
-st.markdown("</div>", unsafe_allow_html=True)
+    # ── Pagination ──────────────────────────────────────────
+    showing = len(page_frames)
 
-# ================= PAGINATION =================
-st.markdown("<br>", unsafe_allow_html=True)
-p1,p2,p3 = st.columns([1,2,1])
+    # Build pagination HTML
+    page_btns = ""
 
-with p1:
-    if st.button("⬅️") and st.session_state.detail_page > 1:
-        st.session_state.detail_page -= 1
-        st.rerun()
+    # Prev button
+    prev_cls = "disabled" if page <= 1 else ""
+    page_btns += f'<span class="page-btn {prev_cls}">‹</span>'
 
-with p2:
-    st.markdown(
-        f"<div style='text-align:center'>Trang {st.session_state.detail_page}/{total_pages}</div>",
-        unsafe_allow_html=True
-    )
+    # Page numbers (show max 5)
+    max_show = 5
+    half = max_show // 2
+    p_start = max(1, page - half)
+    p_end = min(total_pages, p_start + max_show - 1)
+    if p_end - p_start + 1 < max_show:
+        p_start = max(1, p_end - max_show + 1)
 
-with p3:
-    if st.button("➡️") and st.session_state.detail_page < total_pages:
-        st.session_state.detail_page += 1
-        st.rerun()
+    for p in range(p_start, p_end + 1):
+        active = "active" if p == page else ""
+        page_btns += f'<span class="page-btn {active}">{p}</span>'
 
-st.markdown("</div>", unsafe_allow_html=True)
+    # Next button
+    next_cls = "disabled" if page >= total_pages else ""
+    page_btns += f'<span class="page-btn {next_cls}">›</span>'
+
+    st.markdown(f"""
+    <div class="pagination-row">
+        <span class="page-info">Hiển thị {showing} trên {total_rows} khung hình</span>
+        <div class="page-buttons">{page_btns}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Streamlit pagination buttons (functional)
+    _, pg_prev, pg_num, pg_next, _ = st.columns([4, 1, 1, 1, 4])
+
+    with pg_prev:
+        if st.button("‹", disabled=(page <= 1), key="page_prev"):
+            st.session_state.detail_page -= 1
+            st.rerun()
+    with pg_num:
+        st.markdown(
+            f"<div style='text-align:center;padding:8px;font-weight:600'>{page}/{total_pages}</div>",
+            unsafe_allow_html=True,
+        )
+    with pg_next:
+        if st.button("›", disabled=(page >= total_pages), key="page_next"):
+            st.session_state.detail_page += 1
+            st.rerun()

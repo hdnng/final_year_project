@@ -1,19 +1,17 @@
+"""History API calls — session deletion."""
+
 import requests
-import streamlit as st
 
-API_URL = "http://127.0.0.1:8000"
-
-
-def get_headers():
-    token = st.session_state.get("access_token_value")
-    return {"Authorization": f"Bearer {token}"} if token else {}
+from config import API_BASE_URL
+from utils.http import get_auth_headers
 
 
-def delete_session(session_id):
+def delete_session(session_id: int):
+    """Delete a session by ID. Returns None on connection error."""
     try:
         return requests.delete(
-            f"{API_URL}/history/session/{session_id}",
-            headers=get_headers()
+            f"{API_BASE_URL}/history/session/{session_id}",
+            headers=get_auth_headers(),
         )
-    except:
+    except requests.RequestException:
         return None

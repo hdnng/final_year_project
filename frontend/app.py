@@ -1,17 +1,23 @@
-import streamlit as st
+"""
+Application entry point — cookie restoration and routing.
+"""
+
 import requests
+import streamlit as st
 from streamlit_cookies_manager import EncryptedCookieManager
 
-# ===== COOKIE =====
-cookies = EncryptedCookieManager(password="secret_key")
+from config import API_BASE_URL, COOKIE_PASSWORD
+
+# ── Cookie Manager ──────────────────────────────────────────
+cookies = EncryptedCookieManager(password=COOKIE_PASSWORD)
 if not cookies.ready():
     st.stop()
 
-# ===== INIT SESSION =====
+# ── Initialize HTTP Client ──────────────────────────────────
 if "client" not in st.session_state:
     st.session_state.client = requests.Session()
 
-# ===== RESTORE FROM COOKIE =====
+# ── Restore Tokens from Cookies ─────────────────────────────
 access_token = cookies.get("access_token")
 refresh_token = cookies.get("refresh_token")
 
@@ -23,23 +29,22 @@ if refresh_token:
     st.session_state["refresh_token_value"] = refresh_token
     st.session_state.client.cookies.set("refresh_token", refresh_token)
 
-# ===== VALIDATION =====
-client = st.session_state.client
-
+# ── Validate Session ────────────────────────────────────────
 is_login = False
 
 if access_token:
     try:
-        res = client.get("http://127.0.0.1:8000/users/profile", timeout=5)
-
+        res = st.session_state.client.get(
+            f"{API_BASE_URL}/users/profile", timeout=5
+        )
         if res.status_code == 200:
             is_login = True
         else:
             cookies.clear()
-    except:
+    except requests.RequestException:
         is_login = False
 
-# ===== ROUTING =====
+# ── Route ───────────────────────────────────────────────────
 if is_login:
     st.switch_page("pages/home.py")
 else:

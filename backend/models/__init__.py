@@ -1,7 +1,16 @@
+"""
+ORM models package.
+
+Importing this module ensures all models are registered with the
+declarative Base before ``create_all()`` is called.
+"""
+
 from database.database import Base
 
-from .user import User
-from .session import Session
-from .frame import Frame
-from .statistic import Statistic
-from .ai_result import AIResult
+from models.user import User
+from models.session import Session
+from models.frame import Frame
+from models.statistic import Statistic
+from models.ai_result import AIResult
+
+__all__ = ["Base", "User", "Session", "Frame", "Statistic", "AIResult"]

@@ -1,49 +1,42 @@
-import os
-from dotenv import load_dotenv
+"""
+Database engine, session factory, and declarative base.
+
+Usage:
+    from database.database import get_db, Base, engine
+"""
+
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-# =========================
-# LOAD ENV VARIABLES
-# =========================
-load_dotenv()
+from core.config import settings
 
-# =========================
-# DATABASE CONFIG
-# =========================
-DATABASE_URL = os.getenv("DATABASE_URL")
+# ── Validation ──────────────────────────────────────────────
+settings.validate()
 
-if not DATABASE_URL:
-    raise ValueError("DATABASE_URL not found in .env file")
-
-# =========================
-# ENGINE
-# =========================
+# ── Engine ──────────────────────────────────────────────────
 engine = create_engine(
-    DATABASE_URL,
-    echo=False  # bật True nếu muốn debug SQL
+    settings.DATABASE_URL,
+    echo=settings.DEBUG,
+    pool_pre_ping=True,
 )
 
-# =========================
-# SESSION LOCAL
-# =========================
+# ── Session Factory ─────────────────────────────────────────
 SessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
-    bind=engine
+    bind=engine,
 )
 
-# =========================
-# BASE
-# =========================
-Base = declarative_base()
+
+# ── Declarative Base ────────────────────────────────────────
+class Base(DeclarativeBase):
+    """Base class for all ORM models."""
+    pass
 
 
-# =========================
-# DEPENDENCY (QUAN TRỌNG)
-# =========================
+# ── Dependency ──────────────────────────────────────────────
 def get_db():
+    """FastAPI dependency that provides a database session per request."""
     db = SessionLocal()
     try:
         yield db
