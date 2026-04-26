@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session as DBSession
 from core.config import settings
 from core.exceptions import NotFoundError, ValidationError
 from core.logger import get_logger
-from crud.ai_result_crud import get_ai_results_by_frame
+from crud.ai_result_crud import get_ai_results_by_frames
 from crud.frame_crud import get_frames_by_session
 from crud.session_crud import (
     delete_session_cascade,
@@ -67,6 +67,15 @@ def get_session_detail(db: DBSession, session_id: int) -> dict:
 
     frames = get_frames_by_session(db, session_id, skip=0, limit=10_000)
 
+    # Batch fetch all AI results for these frames to prevent N+1 query problem
+    frame_ids = [frame.frame_id for frame in frames]
+    all_ai_results = get_ai_results_by_frames(db, frame_ids)
+
+    # Group results by frame_id for O(1) lookup
+    results_by_frame = {frame_id: [] for frame_id in frame_ids}
+    for r in all_ai_results:
+        results_by_frame[r.frame_id].append(r)
+
     # Build frame list — compute stats from ai_results directly
     frame_list: list[dict] = []
     total_students = 0
@@ -74,7 +83,7 @@ def get_session_detail(db: DBSession, session_id: int) -> dict:
     total_focus = 0.0
 
     for frame in frames:
-        results = get_ai_results_by_frame(db, frame.frame_id)
+        results = results_by_frame.get(frame.frame_id, [])
 
         students = len(results)
         sleeping = sum(

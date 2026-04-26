@@ -26,6 +26,13 @@ def get_ai_results_by_frame(db: DBSession, frame_id: int) -> list[AIResult]:
     return db.query(AIResult).filter(AIResult.frame_id == frame_id).all()
 
 
+def get_ai_results_by_frames(db: DBSession, frame_ids: list[int]) -> list[AIResult]:
+    """Retrieve all AI results associated with multiple frames."""
+    if not frame_ids:
+        return []
+    return db.query(AIResult).filter(AIResult.frame_id.in_(frame_ids)).all()
+
+
 def update_ai_result_label(
     db: DBSession,
     result_id: int,

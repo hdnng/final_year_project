@@ -34,6 +34,7 @@ from crud.frame_crud import (
 from crud.ai_result_crud import (
     create_ai_result,
     get_ai_results_by_frame,
+    get_ai_results_by_frames,
     update_ai_result_label,
 )
 
@@ -62,6 +63,7 @@ __all__ = [
     "get_frames_by_session",
     "create_ai_result",
     "get_ai_results_by_frame",
+    "get_ai_results_by_frames",
     "update_ai_result_label",
     "create_statistics",
     "get_stats_by_session",

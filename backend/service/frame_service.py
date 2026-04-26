@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session as DBSession
 
 from core.exceptions import NotFoundError
 from core.logger import get_logger
-from crud.ai_result_crud import get_ai_results_by_frame, update_ai_result_label
+from crud.ai_result_crud import get_ai_results_by_frame, get_ai_results_by_frames, update_ai_result_label
 from crud.frame_crud import get_frame_by_id, get_frames_by_session
 from crud.statistics_crud import recalculate_statistics_for_frame
 from utils.label_utils import get_final_label
@@ -20,9 +20,18 @@ def get_analysis_data(db: DBSession, session_id: int) -> list[dict]:
     """Compute per-frame focus/sleeping counts for a session."""
     frames = get_frames_by_session(db, session_id, skip=0, limit=10_000)
 
+    # Batch fetch all AI results for these frames
+    frame_ids = [frame.frame_id for frame in frames]
+    all_ai_results = get_ai_results_by_frames(db, frame_ids)
+
+    # Group results by frame_id
+    results_by_frame = {frame_id: [] for frame_id in frame_ids}
+    for r in all_ai_results:
+        results_by_frame[r.frame_id].append(r)
+
     data: list[dict] = []
     for frame in frames:
-        results = get_ai_results_by_frame(db, frame.frame_id)
+        results = results_by_frame.get(frame.frame_id, [])
 
         sleeping = sum(
             1 for r in results if "Sleeping" in (get_final_label(r) or "")
