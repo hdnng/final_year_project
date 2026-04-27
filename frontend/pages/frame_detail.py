@@ -6,6 +6,7 @@ import streamlit as st
 from PIL import Image
 
 from components.app_sidebar import render_sidebar
+from config import API_BASE_URL
 from services.frame_api import get_frame_detail
 from utils.auth_guard import require_auth
 from utils.hide_streamlit_sidebar import hide_sidebar
@@ -45,7 +46,9 @@ conf = round(data.get("avg_confidence", 0) * 100, 1)
 # Percentages for distribution
 focus_pct = round(focus / total * 100) if total else 0
 sleeping_pct = round(sleeping / total * 100) if total else 0
-other_pct = max(0, 100 - focus_pct - sleeping_pct)
+# Adjusted to ensure total is exactly 100 if we only have two categories
+if total and (focus + sleeping == total):
+    sleeping_pct = 100 - focus_pct
 
 detections = data.get("detections", [])
 
@@ -390,15 +393,6 @@ with right_col:
     """, unsafe_allow_html=True)
     st.progress(sleeping_pct / 100 if sleeping_pct > 0 else 0)
 
-    # Xao nhãng
-    st.markdown(f"""
-    <div class="dist-row">
-        <span class="dist-label">Xao nhãng</span>
-        <span class="dist-pct">{other_pct}%</span>
-    </div>
-    """, unsafe_allow_html=True)
-    st.progress(other_pct / 100 if other_pct > 0 else 0)
-
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ── Detections Table ────────────────────────────────────────
@@ -443,12 +437,9 @@ else:
         if "Sleeping" in status:
             tag_cls = "sleeping"
             tag_text = "Buồn ngủ"
-        elif "Normal" in status:
+        else:
             tag_cls = "normal"
             tag_text = "Tập trung"
-        else:
-            tag_cls = "distracted"
-            tag_text = "Xao nhãng"
 
         c3.markdown(
             f"<div class='tbl-cell'><span class='status-tag {tag_cls}'>{tag_text}</span></div>",

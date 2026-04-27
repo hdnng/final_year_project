@@ -158,48 +158,47 @@ if row2:
 # ── Pagination ──────────────────────────────────────────────
 showing = len(show_frames)
 
-# Build page buttons HTML
+
+# ── Pagination row ──────────────────────────────────────────
+st.markdown('<div id="analysis-pagination-row">', unsafe_allow_html=True)
+info_col, _, prev_col, nums_col, next_col = st.columns([4, 2, 1, 4, 1])
+
+with info_col:
+    st.markdown(
+        f"<div class='pg-info-label'>Hiển thị {showing} trong số {total} khung hình</div>",
+        unsafe_allow_html=True,
+    )
+
+# Build page-number HTML
+p_start = max(1, page - 2)
+p_end = min(pages, page + 2)
 page_btns_html = ""
-prev_cls = "disabled" if page <= 1 else ""
-page_btns_html += f'<span class="pg-btn {prev_cls}">‹</span>'
-
-max_show = 5
-half = max_show // 2
-p_start = max(1, page - half)
-p_end = min(pages, p_start + max_show - 1)
-if p_end - p_start + 1 < max_show:
-    p_start = max(1, p_end - max_show + 1)
-
+if p_start > 1:
+    page_btns_html += '<span class="pg-btn">1</span><span class="pg-btn disabled">…</span>'
 for p in range(p_start, p_end + 1):
     active = "active" if p == page else ""
     page_btns_html += f'<span class="pg-btn {active}">{p}</span>'
+if p_end < pages:
+    page_btns_html += f'<span class="pg-btn disabled">…</span><span class="pg-btn">{pages}</span>'
 
-next_cls = "disabled" if page >= pages else ""
-page_btns_html += f'<span class="pg-btn {next_cls}">›</span>'
+with nums_col:
+    st.markdown(
+        f"<div class='pg-nums-bar'>{page_btns_html}</div>",
+        unsafe_allow_html=True,
+    )
 
-st.markdown(f"""
-<div class="pagination-bar">
-    <span class="page-info">Hiển thị {showing} trong số {total} khung hình</span>
-    <div class="page-btns">{page_btns_html}</div>
-</div>
-""", unsafe_allow_html=True)
-
-# Functional pagination buttons
-_, pg_prev, pg_num, pg_next, _ = st.columns([4, 1, 1, 1, 4])
-
-with pg_prev:
+with prev_col:
     if st.button("‹", disabled=(page <= 1), key="pg_prev"):
         st.session_state.analysis_page -= 1
         st.rerun()
-with pg_num:
-    st.markdown(
-        f"<div class='page-num-label'>{page}/{pages}</div>",
-        unsafe_allow_html=True,
-    )
-with pg_next:
+
+with next_col:
     if st.button("›", disabled=(page >= pages), key="pg_next"):
         st.session_state.analysis_page += 1
         st.rerun()
+st.markdown('</div>', unsafe_allow_html=True)
+
+
 
 # ── Auto Refresh ────────────────────────────────────────────
 if st.session_state.get("running", False):

@@ -354,10 +354,55 @@ div[data-testid="stHorizontalBlock"] {
     gap: 16px;
 }
 
-/* ===== PAGINATION CURRENT PAGE LABEL ===== */
-.page-num-label {
-    text-align: center;
-    padding: 8px;
-    font-weight: 600;
-    color: #64748b;
+/* ===== PAGINATION row (Streamlit columns) ===== */
+div#detail-pagination-row [data-testid="stHorizontalBlock"] {
+    align-items: center;
+    background: #ffffff;
+    padding: 12px 20px;
+    border-radius: 12px;
+    border: 1px solid #eef2f7;
+    margin-top: 20px;
+    gap: 0 !important;
+}
+
+.pg-info-text {
+    font-size: 13px;
+    color: #94a3b8;
+    height: 34px;
+    display: flex;
+    align-items: center;
+}
+
+.pg-buttons-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    height: 34px;
+}
+
+/* Style the ‹ and › buttons to look like .page-btn */
+div#detail-pagination-row button {
+    min-width: 34px !important;
+    height: 34px !important;
+    padding: 0 !important;
+    border-radius: 8px !important;
+    border: 1px solid #e2e8f0 !important;
+    background: white !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    color: #475569 !important;
+    box-shadow: none !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+div#detail-pagination-row button:hover {
+    border-color: #cbd5e1 !important;
+    background: #f8fafc !important;
+}
+
+div#detail-pagination-row button:disabled {
+    opacity: 0.35 !important;
 }

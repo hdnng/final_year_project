@@ -188,11 +188,19 @@ else:
 start_idx = (current_page - 1) * PAGE_SIZE + 1
 end_idx = min(current_page * PAGE_SIZE, total_sessions_count)
 
-# Build pagination HTML
-page_buttons = []
-page_buttons.append(f'<span class="page-btn {"disabled" if current_page <= 1 else ""}" id="pg-prev">‹</span>')
+# ── Pagination ──────────────────────────────────────────────
+# Single Streamlit row — styled via CSS to match the table footer design.
+st.markdown('<div id="hist-pagination-row">', unsafe_allow_html=True)
+info_col, _, prev_col, nums_col, next_col = st.columns([4, 2, 1, 4, 1])
 
-# Show max 5 page buttons
+with info_col:
+    st.markdown(
+        f"<div class='pagination-info'>Hiển thị {start_idx} – {end_idx} của {total_sessions_count} kết quả</div>",
+        unsafe_allow_html=True,
+    )
+
+# Build page-number HTML (decorative display only)
+page_buttons = []
 if total_pages <= 7:
     page_range = range(1, total_pages + 1)
 else:
@@ -210,28 +218,22 @@ for p in page_range:
         active = "active" if p == current_page else ""
         page_buttons.append(f'<span class="page-btn {active}">{p}</span>')
 
-page_buttons.append(f'<span class="page-btn {"disabled" if current_page >= total_pages else ""}" id="pg-next">›</span>')
+with nums_col:
+    st.markdown(
+        f"<div class='pagination-controls'>{''.join(page_buttons)}</div>",
+        unsafe_allow_html=True,
+    )
 
-st.markdown(f"""
-<div class="pagination-bar">
-    <span class="pagination-info">Hiển thị {start_idx} - {end_idx} của {total_sessions_count} kết quả</span>
-    <div class="pagination-controls">
-        {''.join(page_buttons)}
-    </div>
-</div>
-""", unsafe_allow_html=True)
+with prev_col:
+    if st.button("‹", key="pg_prev_btn", disabled=(current_page <= 1)):
+        st.session_state.hist_page -= 1
+        st.rerun()
+
+with next_col:
+    if st.button("›", key="pg_next_btn", disabled=(current_page >= total_pages)):
+        st.session_state.hist_page += 1
+        st.rerun()
+st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown("</div>", unsafe_allow_html=True)
-
-# Streamlit pagination controls (hidden visually but functional)
-pg_cols = st.columns([1, 6, 1])
-with pg_cols[0]:
-    if current_page > 1:
-        if st.button("⬅️ Trước", key="pg_prev_btn", use_container_width=True):
-            st.session_state.hist_page -= 1
-            st.rerun()
-with pg_cols[2]:
-    if current_page < total_pages:
-        if st.button("Sau ➡️", key="pg_next_btn", use_container_width=True):
-            st.session_state.hist_page += 1
-            st.rerun()
+

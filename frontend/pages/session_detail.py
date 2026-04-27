@@ -258,49 +258,41 @@ else:
     # ── Pagination ──────────────────────────────────────────
     showing = len(page_frames)
 
-    # Build pagination HTML
-    page_btns = ""
+    # ── Unified Pagination row ──────────────────────────────────────────
+    st.markdown('<div id="detail-pagination-row">', unsafe_allow_html=True)
+    info_col, _, prev_col, nums_col, next_col = st.columns([4, 2, 1, 4, 1])
 
-    # Prev button
-    prev_cls = "disabled" if page <= 1 else ""
-    page_btns += f'<span class="page-btn {prev_cls}">‹</span>'
+    with info_col:
+        st.markdown(
+            f"<div class='pg-info-text'>Hiển thị {showing} trên {total_rows} khung hình</div>",
+            unsafe_allow_html=True,
+        )
 
-    # Page numbers (show max 5)
-    max_show = 5
-    half = max_show // 2
-    p_start = max(1, page - half)
-    p_end = min(total_pages, p_start + max_show - 1)
-    if p_end - p_start + 1 < max_show:
-        p_start = max(1, p_end - max_show + 1)
-
+    # Build page-number HTML (decorative only)
+    p_start = max(1, page - 2)
+    p_end = min(total_pages, page + 2)
+    page_btns_html = ""
+    if p_start > 1:
+        page_btns_html += '<span class="page-btn">1</span><span class="page-btn disabled">…</span>'
     for p in range(p_start, p_end + 1):
         active = "active" if p == page else ""
-        page_btns += f'<span class="page-btn {active}">{p}</span>'
+        page_btns_html += f'<span class="page-btn {active}">{p}</span>'
+    if p_end < total_pages:
+        page_btns_html += f'<span class="page-btn disabled">…</span><span class="page-btn">{total_pages}</span>'
 
-    # Next button
-    next_cls = "disabled" if page >= total_pages else ""
-    page_btns += f'<span class="page-btn {next_cls}">›</span>'
+    with nums_col:
+        st.markdown(
+            f"<div class='pg-buttons-container'>{page_btns_html}</div>",
+            unsafe_allow_html=True,
+        )
 
-    st.markdown(f"""
-    <div class="pagination-row">
-        <span class="page-info">Hiển thị {showing} trên {total_rows} khung hình</span>
-        <div class="page-buttons">{page_btns}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Streamlit pagination buttons (functional)
-    _, pg_prev, pg_num, pg_next, _ = st.columns([4, 1, 1, 1, 4])
-
-    with pg_prev:
+    with prev_col:
         if st.button("‹", disabled=(page <= 1), key="page_prev"):
             st.session_state.detail_page -= 1
             st.rerun()
-    with pg_num:
-        st.markdown(
-            f"<div class='page-num-label'>{page}/{total_pages}</div>",
-            unsafe_allow_html=True,
-        )
-    with pg_next:
+
+    with next_col:
         if st.button("›", disabled=(page >= total_pages), key="page_next"):
             st.session_state.detail_page += 1
             st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
