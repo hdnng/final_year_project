@@ -3,11 +3,14 @@
 import streamlit as st
 
 from components.app_sidebar import render_sidebar
-from config import API_BASE_URL
-from services.history_api import delete_session
+from services.history_api import (
+    delete_session,
+    get_history,
+    get_history_summary,
+)
 from utils.auth_guard import require_auth
 from utils.hide_streamlit_sidebar import hide_sidebar
-from utils.http import init_session_state, get_auth_headers
+from utils.http import init_session_state
 from utils.load_css import load_css
 
 # ── Config ──────────────────────────────────────────────────
@@ -22,49 +25,25 @@ require_auth()
 PAGE_SIZE = 5
 
 
-# ── API ─────────────────────────────────────────────────────
-def get_history(session, search: str = "", page: int = 1) -> dict | None:
-    """Fetch session list and summary counts."""
-    try:
-        headers = get_auth_headers()
-        skip = (page - 1) * PAGE_SIZE
-        params = {"skip": skip, "limit": PAGE_SIZE}
-        if search.strip():
-            params["search"] = search.strip()
+def _fetch_history(session, search: str = "", page: int = 1) -> dict | None:
+    """Fetch session list and summary counts via service layer."""
+    skip = (page - 1) * PAGE_SIZE
+    sessions = get_history(session, search=search, skip=skip, limit=PAGE_SIZE)
+    summary = get_history_summary(session)
 
-        sessions_res = session.get(
-            f"{API_BASE_URL}/history/sessions",
-            headers=headers,
-            params=params,
-        )
-        summary_res = session.get(
-            f"{API_BASE_URL}/history/summary",
-            headers=headers,
-        )
-
-        if sessions_res.status_code == 401 or summary_res.status_code == 401:
-            st.error("❌ Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại")
-            return None
-
-        if sessions_res.status_code == 200 and summary_res.status_code == 200:
-            summary = summary_res.json()
-            return {
-                "sessions": sessions_res.json(),
-                "total_sessions": summary.get("total_sessions", 0),
-                "month_sessions": summary.get("month_sessions", 0),
-            }
-
-        st.error(f"❌ Lỗi API: {sessions_res.status_code}")
+    if sessions is None or summary is None:
         return None
 
-    except Exception as exc:
-        st.error(f"❌ Lỗi kết nối: {exc}")
-        return None
+    return {
+        "sessions": sessions,
+        "total_sessions": summary.get("total_sessions", 0),
+        "month_sessions": summary.get("month_sessions", 0),
+    }
 
 
 def handle_delete(session_id: int) -> None:
     """Execute session deletion and show result."""
-    res = delete_session(session_id)
+    res = delete_session(st.session_state.client, session_id)
     if not res:
         st.error("❌ Không kết nối được server")
         return
@@ -107,7 +86,7 @@ if "hist_search" not in st.session_state:
 st.markdown('<div class="page-title">Lịch sử phân tích</div>', unsafe_allow_html=True)
 
 # ── Load Data ───────────────────────────────────────────────
-data = get_history(
+data = _fetch_history(
     st.session_state.client,
     search=st.session_state.hist_search,
     page=st.session_state.hist_page,

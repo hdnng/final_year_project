@@ -193,3 +193,18 @@ button[kind="primary"]:hover {
     background-color: #f9fafb !important;
     border-color: #9ca3af !important;
 }
+
+/* ===== SECTION DIVIDER ===== */
+.section-divider {
+    margin: 16px 0;
+    border: none;
+    border-top: 1px solid #e2e8f0;
+}
+
+/* ===== PAGINATION LABEL ===== */
+.page-num-label {
+    text-align: center;
+    padding: 8px;
+    font-weight: 600;
+    color: #64748b;
+}

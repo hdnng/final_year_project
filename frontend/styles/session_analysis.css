@@ -236,3 +236,11 @@ body {
 div[data-testid="stVerticalBlock"] > div {
     padding-top: 0 !important;
 }
+
+/* ===== PAGINATION CURRENT PAGE LABEL ===== */
+.page-num-label {
+    text-align: center;
+    padding: 8px;
+    font-weight: 600;
+    color: #64748b;
+}

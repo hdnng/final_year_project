@@ -6,10 +6,10 @@ import streamlit as st
 import plotly.graph_objects as go
 
 from components.app_sidebar import render_sidebar
-from config import API_BASE_URL
+from services.history_api import get_session_detail
 from utils.auth_guard import require_auth
 from utils.hide_streamlit_sidebar import hide_sidebar
-from utils.http import init_session_state, get_auth_headers
+from utils.http import init_session_state
 from utils.load_css import load_css
 
 # ── Config ──────────────────────────────────────────────────
@@ -34,24 +34,10 @@ if not session_id:
     st.stop()
 
 
-# ── API ─────────────────────────────────────────────────────
-def get_detail() -> dict | None:
-    try:
-        res = st.session_state.client.get(
-            f"{API_BASE_URL}/history/session/{session_id}",
-            headers=get_auth_headers(),
-        )
-        if res.status_code == 200:
-            return res.json()
-        st.error("Không lấy được dữ liệu")
-        return None
-    except Exception as exc:
-        st.error(str(exc))
-        return None
-
-
-data = get_detail()
+# ── Load Data ───────────────────────────────────────────────
+data = get_session_detail(st.session_state.client, session_id)
 if not data:
+    st.error("Không lấy được dữ liệu")
     st.stop()
 
 frames = data.get("frames", [])
@@ -311,7 +297,7 @@ else:
             st.rerun()
     with pg_num:
         st.markdown(
-            f"<div style='text-align:center;padding:8px;font-weight:600'>{page}/{total_pages}</div>",
+            f"<div class='page-num-label'>{page}/{total_pages}</div>",
             unsafe_allow_html=True,
         )
     with pg_next:

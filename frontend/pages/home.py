@@ -7,6 +7,7 @@ from streamlit_autorefresh import st_autorefresh
 
 from components.app_sidebar import render_sidebar
 from config import API_BASE_URL
+from services.frame_api import get_frames_by_session
 from utils.auth_guard import require_auth
 from utils.hide_streamlit_sidebar import hide_sidebar
 from utils.http import init_session_state, safe_get, safe_post
@@ -241,45 +242,38 @@ with right_col:
 
     if st.session_state["running"] and st.session_state["session_id"]:
         sid = st.session_state["session_id"]
-        frame_res = safe_get(f"{API_BASE_URL}/frames/{sid}")
+        frames = get_frames_by_session(st.session_state.client, sid)
 
-        if frame_res and frame_res.status_code == 200:
-            try:
-                frames = frame_res.json()
-            except Exception:
-                frames = []
-
-            if not frames:
-                st.info("Chưa có khung hình nào được trích xuất")
-            else:
-                box = st.container(height=500, border=False)
-                with box:
-                    for frame in frames:
-                        img_path = frame.get("image_path")
-                        if not img_path:
-                            continue
-
-                        st.markdown('<div class="frame-item">', unsafe_allow_html=True)
-                        st.image(img_path, use_container_width=True)
-
-                        fc1, fc2 = st.columns([2, 1])
-                        with fc1:
-                            st.caption(f"Nhận diện: {frame.get('total_students', '?')} HS")
-                            st.caption(frame.get("extracted_at", ""))
-                        with fc2:
-                            if st.button(
-                                "XEM CHI TIẾT",
-                                key=f"detail_{frame['frame_id']}",
-                                use_container_width=True,
-                            ):
-                                st.session_state["frame_id"] = frame["frame_id"]
-                                st.switch_page("pages/frame_detail.py")
-
-                        st.markdown("</div>", unsafe_allow_html=True)
+        if not frames:
+            st.info("Chưa có khung hình nào được trích xuất")
         else:
-            st.warning("Không tải được khung hình")
+            box = st.container(height=500, border=False)
+            with box:
+                for frame in frames:
+                    img_path = frame.get("image_path")
+                    if not img_path:
+                        continue
+
+                    st.markdown('<div class="frame-item">', unsafe_allow_html=True)
+                    st.image(img_path, use_container_width=True)
+
+                    fc1, fc2 = st.columns([2, 1])
+                    with fc1:
+                        st.caption(f"Nhận diện: {frame.get('total_students', '?')} HS")
+                        st.caption(frame.get("extracted_at", ""))
+                    with fc2:
+                        if st.button(
+                            "XEM CHI TIẾT",
+                            key=f"detail_{frame['frame_id']}",
+                            use_container_width=True,
+                        ):
+                            st.session_state["frame_id"] = frame["frame_id"]
+                            st.switch_page("pages/frame_detail.py")
+
+                    st.markdown("</div>", unsafe_allow_html=True)
     else:
         st.info("Chưa bắt đầu phiên giám sát")
+
 
     if st.session_state["running"]:
         st.markdown('<div class="view-all-btn">', unsafe_allow_html=True)

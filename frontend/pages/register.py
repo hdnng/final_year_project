@@ -1,6 +1,5 @@
 """Registration page."""
 
-import requests
 import streamlit as st
 
 from services.auth_api import register
@@ -12,14 +11,8 @@ init_session_state()
 
 st.set_page_config(layout="centered", initial_sidebar_state="collapsed", page_title="Đăng ký")
 
-st.markdown("""
-<style>[data-testid="stSidebar"] {display: none;}</style>
-""", unsafe_allow_html=True)
+st.markdown(load_css("styles/register.css"), unsafe_allow_html=True)
 
-try:
-    st.markdown(load_css("styles/register.css"), unsafe_allow_html=True)
-except Exception:
-    pass
 
 col_left, col_right = st.columns([1.1, 1])
 

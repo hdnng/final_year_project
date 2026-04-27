@@ -1,28 +1,23 @@
 """Login page."""
 
-import requests
 import streamlit as st
 from streamlit_cookies_manager import EncryptedCookieManager
 
 from config import COOKIE_PASSWORD
 from services.auth_api import login
+from utils.http import init_session_state
 from utils.load_css import load_css
 
 # ── Config ──────────────────────────────────────────────────
 st.set_page_config(layout="centered", initial_sidebar_state="collapsed", page_title="Đăng nhập")
 
+init_session_state()
+
 cookies = EncryptedCookieManager(password=COOKIE_PASSWORD)
 if not cookies.ready():
     st.stop()
 
-if "client" not in st.session_state:
-    st.session_state.client = requests.Session()
-
-# Hide sidebar
-st.markdown("""
-<style>[data-testid="stSidebar"] {display: none;}</style>
-""", unsafe_allow_html=True)
-
+# Sidebar hide + all styles now in login.css
 try:
     st.markdown(load_css("styles/login.css"), unsafe_allow_html=True)
 except Exception:

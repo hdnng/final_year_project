@@ -3,6 +3,11 @@ header[data-testid="stHeader"] {
     display: none;
 }
 
+/* Hide sidebar on register page */
+[data-testid="stSidebar"] {
+    display: none !important;
+}
+
 /* Background of the whole page */
 [data-testid="stAppViewContainer"] {
     background-color: #f5f7fa !important;

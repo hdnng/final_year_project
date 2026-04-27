@@ -6,10 +6,10 @@ import streamlit as st
 from PIL import Image
 
 from components.app_sidebar import render_sidebar
-from config import API_BASE_URL
+from services.frame_api import get_frame_detail
 from utils.auth_guard import require_auth
 from utils.hide_streamlit_sidebar import hide_sidebar
-from utils.http import init_session_state, get_auth_headers
+from utils.http import init_session_state
 from utils.load_css import load_css
 
 # ── Config ──────────────────────────────────────────────────
@@ -32,18 +32,10 @@ if not frame_id:
 
 
 # ── Load Data ───────────────────────────────────────────────
-def load_data() -> dict:
-    res = st.session_state.client.get(
-        f"{API_BASE_URL}/frames/detail/{frame_id}",
-        headers=get_auth_headers(),
-    )
-    if res.status_code != 200:
-        st.error("Không lấy được dữ liệu frame.")
-        st.stop()
-    return res.json()
-
-
-data = load_data()
+data = get_frame_detail(st.session_state.client, frame_id)
+if not data:
+    st.error("Không lấy được dữ liệu frame.")
+    st.stop()
 
 total = data.get("total_students", 0)
 sleeping = data.get("sleeping_count", 0)

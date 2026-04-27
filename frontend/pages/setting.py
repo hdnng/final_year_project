@@ -111,7 +111,7 @@ with st.container():
             st.session_state.show_pw_change = not st.session_state.get("show_pw_change", False)
             
     if st.session_state.get("show_pw_change", False):
-        st.markdown('<hr style="margin: 16px 0; border-color: #e2e8f0;">', unsafe_allow_html=True)
+        st.markdown('<hr class="section-divider">', unsafe_allow_html=True)
         
         show_pass = st.checkbox("Hiển thị mật khẩu")
         pw_type = "text" if show_pass else "password"

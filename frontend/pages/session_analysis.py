@@ -6,10 +6,11 @@ import streamlit as st
 from streamlit_autorefresh import st_autorefresh
 
 from components.app_sidebar import render_sidebar
-from config import API_BASE_URL
+from services.frame_api import get_frame_analysis
+from services.history_api import get_all_sessions
 from utils.auth_guard import require_auth
 from utils.hide_streamlit_sidebar import hide_sidebar
-from utils.http import init_session_state, get_auth_headers
+from utils.http import init_session_state
 from utils.load_css import load_css
 
 # ── Config ──────────────────────────────────────────────────
@@ -34,32 +35,16 @@ if not session_id:
     st.warning("Không có phiên học đang chạy.")
     st.stop()
 
-# ── Get Class Name ──────────────────────────────────────────
+# ── Get Class Name ──────────────────────────────────────────────
 class_name = "UNKNOWN"
-try:
-    res = st.session_state.client.get(
-        f"{API_BASE_URL}/history/sessions",
-        headers=get_auth_headers(),
-    )
-    if res.status_code == 200:
-        for s in res.json():
-            if s["session_id"] == session_id:
-                class_name = s["class_id"]
-                break
-except Exception:
-    pass
+all_sessions = get_all_sessions(st.session_state.client)
+for s in all_sessions:
+    if s["session_id"] == session_id:
+        class_name = s["class_id"]
+        break
 
-# ── Get Analysis Data ───────────────────────────────────────
-frames = []
-try:
-    res = st.session_state.client.get(
-        f"{API_BASE_URL}/frames/analysis/{session_id}",
-        headers=get_auth_headers(),
-    )
-    if res.status_code == 200:
-        frames = res.json()
-except Exception:
-    pass
+# ── Get Analysis Data ──────────────────────────────────────────────
+frames = get_frame_analysis(st.session_state.client, session_id)
 
 # ── Header ──────────────────────────────────────────────────
 if st.button("← Danh sách khung hình"):
@@ -208,7 +193,7 @@ with pg_prev:
         st.rerun()
 with pg_num:
     st.markdown(
-        f"<div style='text-align:center;padding:8px;font-weight:600;color:#64748b'>{page}/{pages}</div>",
+        f"<div class='page-num-label'>{page}/{pages}</div>",
         unsafe_allow_html=True,
     )
 with pg_next:

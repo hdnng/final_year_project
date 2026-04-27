@@ -6,10 +6,10 @@ import plotly.express as px
 from datetime import datetime, timedelta
 
 from components.app_sidebar import render_sidebar
-from config import API_BASE_URL
+from services.stats_api import get_daily_stats
 from utils.auth_guard import require_auth
 from utils.hide_streamlit_sidebar import hide_sidebar
-from utils.http import init_session_state, get_auth_headers
+from utils.http import init_session_state
 from utils.load_css import load_css
 
 # ── Config ──────────────────────────────────────────────────
@@ -25,29 +25,9 @@ hide_sidebar()
 render_sidebar(active="statistics")
 
 
-# ── API ─────────────────────────────────────────────────────
-def get_daily(session) -> list:
-    """Fetch daily statistics from the backend."""
-    try:
-        res = session.get(
-            f"{API_BASE_URL}/stats/daily",
-            headers=get_auth_headers(),
-        )
-        if res.status_code == 200:
-            return res.json()
-        if res.status_code == 401:
-            st.error("❌ Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại")
-            st.stop()
-        st.error(f"❌ Lỗi: {res.status_code}")
-        return []
-    except Exception as exc:
-        st.error(f"❌ Lỗi kết nối: {exc}")
-        return []
-
-
 # ── Load Data ───────────────────────────────────────────────
 client = st.session_state.client
-daily_data = get_daily(client)
+daily_data = get_daily_stats(client)
 
 if not daily_data:
     st.markdown(
