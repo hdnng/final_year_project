@@ -194,14 +194,13 @@ final_year_project/
     │   ├── history_router.py     # /history/*
     │   ├── statistics_router.py  # /stats/*
     │   └── ai_result_router.py   # /ai-result/*
-    │
     ├── service/
     │   └── camera_service.py     # Camera control + AI inference loop
     │
     ├── ai_model/
-    │   ├── ai_pipeline.py        # YOLOv8 face detection + classification
-    │   ├── best_model.pth        # Trained model weights (NOT committed)
-    │   └── weights/              # Additional weights (NOT committed)
+    │   ├── weights/              # Thư mục chứa trọng số mô hình
+    │   │   ├── yolov8n.pt        # YOLOv8 weights (Committed)
+    │   │   └── behavior_model_final.keras # CNN weights (Committed)
     │
     ├── crud/                     # Database operations
     │   ├── user_crud.py
@@ -583,14 +582,12 @@ Các file/thư mục sau được bỏ qua bởi `.gitignore`:
 |---|---|
 | `backend/.env` | Chứa credentials nhạy cảm |
 | `images/` | Ảnh runtime do camera tạo ra (hàng trăm MB) |
-| `backend/ai_model/best_model.pth` | File model nặng (~6.5MB, dùng external storage) |
-| `backend/yolov8n.pt` | YOLOv8 pretrained weights |
 | `venv/` | Virtual environment |
 | `__pycache__/` | Python bytecode |
 | `*.log` | Log files |
 | `*.db`, `*.sqlite` | Database files |
 
-> **Model weights**: Tải xuống riêng và đặt vào `backend/ai_model/best_model.pth`
+
 
 ---
 

@@ -70,20 +70,9 @@ backend/logs/
 *.sqlite3
 dump.rdb
 
-# ── AI Models & Weights ─────────────────────────────────────
-# Large binary model files — store with Git LFS or external storage
-*.pt
-*.pth
-*.h5
-*.keras
-*.onnx
-*.tflite
-*.pkl
-weights/
-backend/ai_model/weights/
-backend/ai_model/best_model.pth
 
 # ── Runtime-generated Images ─────────────────────────────────
+
 # Camera-captured frames saved by the application at runtime
 images/
 images/**
