@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from core.dependencies import get_client_ip, get_current_user
 from core.security import get_cookie_settings
 from database.database import get_db
+from models.user import User
 from schemas.common import MessageResponse, TokenResponse
 from schemas.user import ChangePassword, UserCreate, UserLogin, UserResponse, UserUpdate
 from service.user_service import (
@@ -57,6 +58,7 @@ def login(
     return {
         "message": "Login successful",
         "user_id": result["user_id"],
+        "role": result["role"],
         "access_token": result["access_token"],
         "refresh_token": result["refresh_token"],
     }
@@ -64,43 +66,43 @@ def login(
 
 @router.get("/profile", response_model=UserResponse)
 def get_user_profile(
-    user_id: int = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Retrieve the authenticated user's profile."""
-    return get_profile(db, user_id)
+    return get_profile(db, user.user_id)
 
 
 @router.put("/update", response_model=UserResponse)
 def update_user(
     data: UserUpdate,
-    user_id: int = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Update the authenticated user's profile."""
-    return update_profile(db, user_id, data)
+    return update_profile(db, user.user_id, data)
 
 
 @router.put("/change-password", response_model=MessageResponse)
 def change_password(
     data: ChangePassword,
-    user_id: int = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Change the authenticated user's password."""
-    change_user_password(db, user_id, data.old_password, data.new_password)
+    change_user_password(db, user.user_id, data.old_password, data.new_password)
     return {"message": "Password changed successfully"}
 
 
 @router.post("/logout", response_model=MessageResponse)
 def logout(
     response: Response,
-    user_id: int = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     access_token: Optional[str] = Cookie(None),
     refresh_token: Optional[str] = Cookie(None),
 ):
     """Log out the user by revoking tokens and clearing cookies."""
-    logout_user(user_id, access_token, refresh_token)
+    logout_user(user.user_id, access_token, refresh_token)
 
     cookie = get_cookie_settings()
     for key in ("access_token", "refresh_token"):
@@ -133,4 +135,5 @@ def refresh(
         "message": "Token refreshed successfully",
         "access_token": result["access_token"],
         "user_id": result["user_id"],
+        "role": result["role"],
     }

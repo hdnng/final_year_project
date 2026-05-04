@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Session analysis page — frame grid with focus/sleeping counts."""
 
 import math
@@ -12,6 +13,7 @@ from utils.auth_guard import require_auth
 from utils.hide_streamlit_sidebar import hide_sidebar
 from utils.http import init_session_state
 from utils.load_css import load_css
+from utils.render_header import render_page_header
 
 # ── Config ──────────────────────────────────────────────────
 st.set_page_config(layout="wide", page_title="Kết quả phân tích")
@@ -20,6 +22,48 @@ init_session_state()
 
 if "analysis_page" not in st.session_state:
     st.session_state.analysis_page = 1
+
+# ── Hidden buttons for page navigation ───────────────────────
+col_a1, col_a2, col_a3, col_a4, col_a5 = st.columns(5)
+with col_a1:
+    st.markdown('<div id="hide-nav-row-analysis"></div>', unsafe_allow_html=True)
+    if st.button("Go analysis 1", key="analysis_go_1", disabled=True):
+        st.session_state.analysis_page = 1
+with col_a2:
+    if st.button("Go analysis 2", key="analysis_go_2", disabled=True):
+        st.session_state.analysis_page = 2
+with col_a3:
+    if st.button("Go analysis 3", key="analysis_go_3", disabled=True):
+        st.session_state.analysis_page = 3
+with col_a4:
+    if st.button("Go analysis 4", key="analysis_go_4", disabled=True):
+        st.session_state.analysis_page = 4
+with col_a5:
+    if st.button("Go analysis 5", key="analysis_go_5", disabled=True):
+        st.session_state.analysis_page = 5
+
+st.markdown("""
+<style>
+    /* CSS Fallback */
+    [data-testid="stHorizontalBlock"]:has(#hide-nav-row-analysis) {
+        display: none !important;
+    }
+</style>
+<script>
+    (function() {
+        const marker = document.getElementById('hide-nav-row-analysis');
+        if (marker) {
+            const row = marker.closest('[data-testid="stHorizontalBlock"]');
+            if (row) {
+                row.style.display = 'none';
+                row.style.height = '0';
+                row.style.margin = '0';
+                row.style.padding = '0';
+            }
+        }
+    })();
+</script>
+""", unsafe_allow_html=True)
 
 require_auth()
 
@@ -47,13 +91,9 @@ for s in all_sessions:
 frames = get_frame_analysis(st.session_state.client, session_id)
 
 # ── Header ──────────────────────────────────────────────────
-if st.button("← Danh sách khung hình"):
+render_page_header("Kết quả phân tích")
+if st.button("← Quay lại giám sát"):
     st.switch_page("pages/home.py")
-
-st.markdown(
-    '<div class="page-title">Kết quả Phân tích Phiên học</div>',
-    unsafe_allow_html=True,
-)
 
 st.markdown(f"""
 <div class="header-meta">
@@ -161,7 +201,7 @@ showing = len(show_frames)
 
 # ── Pagination row ──────────────────────────────────────────
 st.markdown('<div id="analysis-pagination-row">', unsafe_allow_html=True)
-info_col, _, prev_col, nums_col, next_col = st.columns([4, 2, 1, 4, 1])
+info_col, prev_col, nums_col, next_col = st.columns([4, 1, 4, 1], gap="small")
 
 with info_col:
     st.markdown(
@@ -177,7 +217,7 @@ if p_start > 1:
     page_btns_html += '<span class="pg-btn">1</span><span class="pg-btn disabled">…</span>'
 for p in range(p_start, p_end + 1):
     active = "active" if p == page else ""
-    page_btns_html += f'<span class="pg-btn {active}">{p}</span>'
+    page_btns_html += f'<span class="pg-btn {active}" data-page="{p}">{p}</span>'
 if p_end < pages:
     page_btns_html += f'<span class="pg-btn disabled">…</span><span class="pg-btn">{pages}</span>'
 
@@ -196,7 +236,22 @@ with next_col:
     if st.button("›", disabled=(page >= pages), key="pg_next"):
         st.session_state.analysis_page += 1
         st.rerun()
+
 st.markdown('</div>', unsafe_allow_html=True)
+
+# ── JavaScript for page number clicks ────────────────────────
+st.markdown(f"""
+<script>
+    document.querySelectorAll('#analysis-pagination-row .pg-btn[data-page]').forEach(btn => {{
+        btn.style.cursor = 'pointer';
+        btn.addEventListener('click', function() {{
+            const page = parseInt(this.dataset.page);
+            const hiddenBtn = document.querySelector('button[data-testid*="analysis_go_' + page + '"]');
+            if (hiddenBtn) hiddenBtn.click();
+        }});
+    }});
+</script>
+""", unsafe_allow_html=True)
 
 
 

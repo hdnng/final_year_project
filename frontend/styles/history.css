@@ -224,6 +224,7 @@
     transition: all 0.15s ease;
     text-decoration: none;
     padding: 0 8px;
+    user-select: none;
 }
 
 .page-btn:hover {
@@ -285,7 +286,7 @@ div#hist-pagination-row [data-testid="stHorizontalBlock"] {
     border-top: 1px solid #e8eaed;
     background: #fafbfc;
     margin: 0;
-    gap: 0 !important;
+    gap: 12px !important;
 }
 
 /* Target the buttons inside the pagination row */

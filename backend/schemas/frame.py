@@ -43,6 +43,7 @@ class FrameDetailResponse(BaseModel):
     """Full frame detail with all detections."""
 
     frame_id: int
+    session_id: int
     image_path: str
     total_students: int
     sleeping_count: int

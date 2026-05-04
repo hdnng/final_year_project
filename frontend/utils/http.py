@@ -23,6 +23,7 @@ _DEFAULTS = {
     "capture_start_time": None,
     "refresh_key": 0,
     "page_loaded": "",
+    "user_role": "teacher",
 }
 
 

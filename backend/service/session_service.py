@@ -2,6 +2,7 @@
 Session business logic — listing, detail, summary, and deletion.
 """
 
+from typing import Optional
 from sqlalchemy.orm import Session as DBSession
 
 from core.config import settings
@@ -24,7 +25,7 @@ logger = get_logger(__name__)
 
 def get_session_list(
     db: DBSession,
-    user_id: int,
+    user_id: Optional[int],
     skip: int = 0,
     limit: int = 20,
     search: str | None = None,
@@ -43,7 +44,7 @@ def get_session_list(
     ]
 
 
-def get_session_summary(db: DBSession, user_id: int) -> dict:
+def get_session_summary(db: DBSession, user_id: Optional[int]) -> dict:
     """Return dashboard summary: total sessions + sessions this month."""
     return {
         "total_sessions": get_session_count_by_user(db, user_id),
@@ -122,6 +123,7 @@ def get_session_detail(db: DBSession, session_id: int) -> dict:
         "focus_rate": avg_focus,
         "alerts": total_sleeping,
         "duration": duration,
+        "is_active": session.end_time is None,
         "frames": frame_list,
     }
 
@@ -129,7 +131,7 @@ def get_session_detail(db: DBSession, session_id: int) -> dict:
 def delete_session(
     db: DBSession,
     session_id: int,
-    user_id: int,
+    user_id: Optional[int],
 ) -> dict:
     """
     Delete a session and all related data.

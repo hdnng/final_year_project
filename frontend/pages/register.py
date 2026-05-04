@@ -1,5 +1,7 @@
 """Registration page."""
 
+import base64
+from pathlib import Path
 import streamlit as st
 
 from services.auth_api import register
@@ -13,13 +15,23 @@ st.set_page_config(layout="centered", initial_sidebar_state="collapsed", page_ti
 
 st.markdown(load_css("styles/register.css"), unsafe_allow_html=True)
 
+def get_base64_image(image_path):
+    with open(image_path, "rb") as img_file:
+        return base64.b64encode(img_file.read()).decode()
+
+promo_image_path = Path(__file__).parent.parent / "assets" / "promo_ai.png"
+if promo_image_path.exists():
+    promo_src = f"data:image/png;base64,{get_base64_image(str(promo_image_path))}"
+else:
+    promo_src = "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=800&q=80"
+
 
 col_left, col_right = st.columns([1.1, 1])
 
 # ── Left Column (Promo) ─────────────────────────────────────
 with col_left:
     st.markdown('<div id="left-column-marker"></div>', unsafe_allow_html=True)
-    st.markdown("""
+    st.markdown(f"""
     <div class="logo-row">
         <svg fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path d="M12 3L1 9L4 10.636V17C4 18.1046 7.58172 19 12 19C16.4183 19 20 18.1046 20 17V10.636L23 9L12 3ZM20.25 9L12 13.4862L3.75 9L12 4.51382L20.25 9ZM18 17C18 17.5523 15.3137 18 12 18C8.68629 18 6 17.5523 6 17V11.727L11.5126 14.7214C11.8153 14.8858 12.1847 14.8858 12.4874 14.7214L18 11.727V17Z"></path>
@@ -29,7 +41,7 @@ with col_left:
     
     <div class="promo-image-box">
         <!-- Đặt link ảnh nền ở dòng dưới đây (thay thế thuộc tính src) -->
-        <img src="https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=800&q=80" alt="Promo">
+        <img src="{promo_src}" alt="Promo">
     </div>
     
     <h2 class="promo-title">Kiến tạo tương lai cùng <span class="highlight">Trí tuệ Nhân tạo</span></h2>

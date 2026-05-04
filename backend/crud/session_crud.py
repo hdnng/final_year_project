@@ -78,7 +78,7 @@ def get_sessions_by_user(
 
 def get_sessions_with_frame_count(
     db: DBSession,
-    user_id: int,
+    user_id: Optional[int] = None,
     skip: int = 0,
     limit: int = 20,
     search: Optional[str] = None,
@@ -92,8 +92,10 @@ def get_sessions_with_frame_count(
             func.count(Frame.frame_id).label("frame_count"),
         )
         .outerjoin(Frame, Frame.session_id == SessionModel.session_id)
-        .filter(SessionModel.user_id == user_id)
     )
+    
+    if user_id is not None:
+        query = query.filter(SessionModel.user_id == user_id)
 
     if search:
         query = query.filter(SessionModel.class_id.ilike(f"%{search}%"))
@@ -108,30 +110,26 @@ def get_sessions_with_frame_count(
     )
 
 
-def get_session_count_by_user(db: DBSession, user_id: int) -> int:
-    """Count total sessions for a user."""
-    return (
-        db.query(func.count(SessionModel.session_id))
-        .filter(SessionModel.user_id == user_id)
-        .scalar()
-        or 0
-    )
+def get_session_count_by_user(db: DBSession, user_id: Optional[int] = None) -> int:
+    """Count total sessions for a user (or all sessions if user_id is None)."""
+    query = db.query(func.count(SessionModel.session_id))
+    if user_id is not None:
+        query = query.filter(SessionModel.user_id == user_id)
+    return query.scalar() or 0
 
 
-def get_monthly_session_count_by_user(db: DBSession, user_id: int) -> int:
+def get_monthly_session_count_by_user(db: DBSession, user_id: Optional[int] = None) -> int:
     """Count sessions created during the current month."""
     now = datetime.now(timezone.utc)
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
-    return (
-        db.query(func.count(SessionModel.session_id))
-        .filter(
-            SessionModel.user_id == user_id,
-            SessionModel.start_time >= month_start,
-        )
-        .scalar()
-        or 0
+    query = db.query(func.count(SessionModel.session_id)).filter(
+        SessionModel.start_time >= month_start
     )
+    if user_id is not None:
+        query = query.filter(SessionModel.user_id == user_id)
+        
+    return query.scalar() or 0
 
 
 def delete_session_cascade(
@@ -146,14 +144,12 @@ def delete_session_cascade(
     Cascade order: image files → AI results → statistics → frames → session.
     Returns True if the session was found and deleted.
     """
-    session = (
-        db.query(SessionModel)
-        .filter(
-            SessionModel.session_id == session_id,
-            SessionModel.user_id == user_id,
-        )
-        .first()
-    )
+    query = db.query(SessionModel).filter(SessionModel.session_id == session_id)
+    
+    if user_id is not None:
+        query = query.filter(SessionModel.user_id == user_id)
+        
+    session = query.first()
     if not session:
         return False
 

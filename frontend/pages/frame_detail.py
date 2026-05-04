@@ -12,6 +12,7 @@ from utils.auth_guard import require_auth
 from utils.hide_streamlit_sidebar import hide_sidebar
 from utils.http import init_session_state
 from utils.load_css import load_css
+from utils.render_header import render_page_header
 
 # ── Config ──────────────────────────────────────────────────
 st.set_page_config(layout="wide", page_title="Chi tiết khung hình")
@@ -53,8 +54,30 @@ if total and (focus + sleeping == total):
 detections = data.get("detections", [])
 
 # ── Header ──────────────────────────────────────────────────
-if st.button(f"← Chi tiết khung hình #{frame_id}"):
-    st.switch_page("pages/session_analysis.py")
+render_page_header(f"Chi tiết khung hình #{frame_id}")
+
+# ── Navigation logic: Back to Analysis if it's the ACTIVE session, else to Session Detail
+active_session_id = st.session_state.get("session_id")
+is_running = st.session_state.get("running", False)
+frame_session_id = data.get("session_id")
+
+# Ensure comparison works even if types differ (int vs str)
+try:
+    match = int(active_session_id or 0) == int(frame_session_id or 0)
+except (ValueError, TypeError):
+    match = False
+
+is_active_frame = is_running and match
+back_label = "← Quay lại Giám sát" if is_active_frame else "← Quay lại Chi tiết phiên"
+
+if st.button(back_label):
+    if is_active_frame:
+        st.switch_page("pages/session_analysis.py")
+    else:
+        # Set session context for historical detail view
+        if frame_session_id:
+            st.session_state["selected_session"] = frame_session_id
+        st.switch_page("pages/session_detail.py")
 
 # ── Main Layout ─────────────────────────────────────────────
 left_col, right_col = st.columns([1.6, 1], gap="medium")

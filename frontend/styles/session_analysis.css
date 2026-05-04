@@ -215,6 +215,7 @@ body {
     color: #475569;
     cursor: pointer;
     transition: all 0.15s;
+    user-select: none;
 }
 
 .pg-btn:hover {
@@ -229,7 +230,7 @@ body {
 
 .pg-btn.disabled {
     opacity: 0.35;
-    pointer-events: none;
+    cursor: not-allowed;
 }
 
 /* ===== FIX STREAMLIT GAPS ===== */
@@ -245,7 +246,7 @@ div#analysis-pagination-row [data-testid="stHorizontalBlock"] {
     border-radius: 12px;
     border: 1px solid #eef2f7;
     margin-top: 20px;
-    gap: 0 !important;
+    gap: 12px !important;
 }
 
 .pg-info-label {

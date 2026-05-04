@@ -49,6 +49,7 @@ class SessionDetailResponse(BaseModel):
     focus_rate: float
     alerts: int
     duration: int  # minutes
+    is_active: bool
     frames: list[SessionFrameItem]
 
     model_config = {"from_attributes": True}

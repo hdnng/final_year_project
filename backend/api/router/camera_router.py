@@ -9,6 +9,7 @@ from core.dependencies import get_current_user
 from core.exceptions import ValidationError
 from core.logger import get_logger
 from database.database import get_db
+from models.user import User
 from schemas.camera import (
     CameraInfoResponse,
     CameraListResponse,
@@ -41,7 +42,7 @@ def video_feed():
 def start(
     camera_index: int = Query(0, ge=0, description="Camera device index"),
     class_id: str = Query(..., min_length=1, max_length=100, description="Class identifier"),
-    user_id: int = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Start capturing from a camera and create a new session."""
@@ -50,7 +51,7 @@ def start(
 
     try:
         session_id = start_camera(
-            user_id=user_id,
+            user_id=user.user_id,
             camera_index=camera_index,
             class_id=class_id,
         )
@@ -58,7 +59,7 @@ def start(
             "message": f"Camera {camera_index} started",
             "session_id": session_id,
             "status": "running",
-            "user_id": user_id,
+            "user_id": user.user_id,
         }
     except ValidationError:
         raise
@@ -68,11 +69,11 @@ def start(
 
 
 @router.post("/stop", response_model=CameraStopResponse)
-def stop(user_id: int = Depends(get_current_user)):
+def stop(user: User = Depends(get_current_user)):
     """Stop the active camera and finalize the session."""
     try:
         stop_camera()
-        return {"message": "Camera stopped", "status": "stopped", "user_id": user_id}
+        return {"message": "Camera stopped", "status": "stopped", "user_id": user.user_id}
     except Exception as exc:
         logger.error(f"Failed to stop camera: {exc}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to stop camera: {exc}")

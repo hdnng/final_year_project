@@ -14,5 +14,6 @@ class TokenResponse(BaseModel):
 
     message: str
     user_id: int
+    role: str
     access_token: str
     refresh_token: str | None = None

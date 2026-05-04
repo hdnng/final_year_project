@@ -16,6 +16,7 @@ from core.exceptions import (
     RateLimitError,
     ValidationError,
 )
+from database.database import SessionLocal
 from core.logger import get_logger
 from core.rate_limiter import RateLimiter
 from core.security import get_cookie_settings, hash_password, verify_password
@@ -119,6 +120,7 @@ def login_user(
 
     return {
         "user_id": db_user.user_id,
+        "role": db_user.role,
         "access_token": access_token,
         "refresh_token": refresh_token,
     }
@@ -224,10 +226,16 @@ def refresh_access_token(refresh_token: Optional[str]) -> dict:
     if not user_id:
         raise AuthenticationError(detail="Invalid refresh token")
 
+    with SessionLocal() as db:
+        db_user = get_user_by_id(db, user_id)
+        if not db_user:
+            raise AuthenticationError(detail="User not found")
+        role = db_user.role
+
     access_token, _ = create_access_token(data={"user_id": user_id})
     logger.info(f"Access token refreshed for user: {user_id}")
 
-    return {"access_token": access_token, "user_id": user_id}
+    return {"access_token": access_token, "user_id": user_id, "role": role}
 
 
 # ── Helpers (private) ───────────────────────────────────────

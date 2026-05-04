@@ -16,9 +16,11 @@ from utils.label_utils import get_final_label
 logger = get_logger(__name__)
 
 
-def get_analysis_data(db: DBSession, session_id: int) -> list[dict]:
+def get_analysis_data(
+    db: DBSession, session_id: int, skip: int = 0, limit: int = 50
+) -> list[dict]:
     """Compute per-frame focus/sleeping counts for a session."""
-    frames = get_frames_by_session(db, session_id, skip=0, limit=10_000)
+    frames = get_frames_by_session(db, session_id, skip=skip, limit=limit)
 
     # Batch fetch all AI results for these frames
     frame_ids = [frame.frame_id for frame in frames]
@@ -87,6 +89,7 @@ def get_frame_detail(db: DBSession, frame_id: int) -> dict:
 
     return {
         "frame_id": frame.frame_id,
+        "session_id": frame.session_id,
         "image_path": frame.image_path,
         "total_students": total,
         "sleeping_count": sleeping,

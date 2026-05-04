@@ -68,6 +68,7 @@ if st.button("Đăng nhập", type="primary", use_container_width=True):
                 # Persist to session state
                 st.session_state["access_token_value"] = access_token
                 st.session_state["refresh_token_value"] = refresh_token
+                st.session_state["user_role"] = data.get("role", "teacher")
                 st.session_state["is_login"] = True
 
                 # Set on HTTP client for API calls

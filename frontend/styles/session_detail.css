@@ -1,6 +1,7 @@
-/* ===== GLOBAL ===== */
+/* ===== GLOBAL BACKGROUND ===== */
+.stApp,
 body {
-    background: #f0f4fa;
+    background-color: #f8fafc !important;
 }
 
 .block-container {
@@ -19,6 +20,7 @@ body {
     transition: color 0.2s;
     margin-bottom: 8px;
 }
+
 .back-btn:hover {
     color: #1677ff;
 }
@@ -56,21 +58,30 @@ body {
     color: #2563eb;
 }
 
-/* ===== KPI CARD ===== */
-.kpi-card {
-    background: #ffffff;
-    border-radius: 16px;
-    padding: 22px 24px;
-    border: 1px solid #eef2f7;
-    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.04);
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    margin-bottom: 14px;
+/* ===== ANALYTICS CARDS (Chart & KPIs) ===== */
+
+/* Unified Behavior Chart Card (Targeting column by its content) */
+[data-testid="stColumn"]:has(.card-title) {
+    background: #ffffff !important;
+    border-radius: 16px !important;
+    padding: 24px !important;
+    border: 1px solid #eef2f7 !important;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.04) !important;
 }
 
-.kpi-card .kpi-label {
+/* Individual KPI Cards (for other columns) */
+.kpi-card {
+    background: #ffffff !important;
+    border-radius: 16px !important;
+    padding: 22px 24px !important;
+    border: 1px solid #eef2f7 !important;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.04) !important;
+    margin-bottom: 16px !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.kpi-label {
     color: #94a3b8;
     font-size: 13px;
     font-weight: 500;
@@ -117,15 +128,7 @@ body {
 }
 
 /* ===== CHART CARD (Phân bổ hành vi) ===== */
-.chart-card {
-    background: #ffffff;
-    border-radius: 16px;
-    padding: 22px 24px;
-    border: 1px solid #eef2f7;
-    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.04);
-}
-
-.chart-card .card-title {
+.card-title {
     font-size: 15px;
     font-weight: 600;
     color: #1e293b;
@@ -156,23 +159,31 @@ body {
     margin-right: 8px;
 }
 
-.legend-dot.blue { background: #1677ff; }
-.legend-dot.amber { background: #f59e0b; }
-.legend-dot.red { background: #ef4444; }
+.legend-dot.blue {
+    background: #1677ff;
+}
+
+.legend-dot.amber {
+    background: #f59e0b;
+}
+
+.legend-dot.red {
+    background: #ef4444;
+}
 
 .legend-val {
     font-weight: 600;
     color: #1e293b;
 }
 
-/* ===== TABLE SECTION ===== */
-.table-section {
-    background: white;
-    border-radius: 16px;
-    padding: 22px 24px;
-    border: 1px solid #eef2f7;
-    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.04);
-    margin-top: 20px;
+/* ===== TABLE SECTION CARD (Targeting container by its content) ===== */
+div[data-testid="stVerticalBlock"]:has(.table-header) {
+    background: #ffffff !important;
+    border-radius: 16px !important;
+    padding: 24px !important;
+    border: 1px solid #eef2f7 !important;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.04) !important;
+    margin-top: 24px !important;
 }
 
 .table-header {
@@ -189,21 +200,27 @@ body {
 }
 
 /* ===== TABLE GRID ===== */
+.tbl-head-row {
+    background: #f8fafc;
+    border-radius: 8px;
+    display: flex;
+    margin-bottom: 8px;
+}
+
 .tbl-head {
-    font-weight: 600;
-    padding: 12px 6px;
-    color: #94a3b8;
-    font-size: 12px;
+    font-weight: 700;
+    padding: 14px 12px;
+    color: #64748b;
+    font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    border-bottom: 2px solid #f1f5f9;
+    letter-spacing: 0.8px;
 }
 
 .tbl-cell {
-    padding: 16px 6px;
+    padding: 16px 12px;
     border-bottom: 1px solid #f1f5f9;
     font-size: 14px;
-    color: #334155;
+    color: #1e293b;
     display: flex;
     align-items: center;
 }
@@ -277,6 +294,7 @@ body {
     text-decoration: none;
     transition: color 0.2s;
 }
+
 .action-link:hover {
     color: #0958d9;
 }
@@ -346,7 +364,7 @@ body {
 }
 
 /* ===== FIX STREAMLIT GAPS ===== */
-div[data-testid="stVerticalBlock"] > div {
+div[data-testid="stVerticalBlock"]>div {
     padding-top: 0 !important;
 }
 
@@ -405,4 +423,51 @@ div#detail-pagination-row button:hover {
 
 div#detail-pagination-row button:disabled {
     opacity: 0.35 !important;
+}
+
+/* Style the 'Xem chi ti?t' secondary button to look like a blue link */
+div[data-testid="column"]:last-child button {
+    background: transparent !important;
+    border: none !important;
+    color: #1677ff !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    text-decoration: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+}
+
+div[data-testid="column"]:last-child button:hover {
+    color: #0958d9 !important;
+    text-decoration: underline !important;
+}
+
+/* Filter Icon */
+.filter-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+}
+
+/* Legend Card Style */
+.legend-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+}
+
+.legend-item {
+    background: #f8f9fb !important;
+    padding: 10px 14px !important;
+    border-radius: 12px !important;
+    margin-bottom: 8px !important;
+    border: 1px solid #eff0f3 !important;
 }

@@ -60,10 +60,8 @@ hide_sidebar()
 render_sidebar(active="home")
 
 # ── Header ──────────────────────────────────────────────────
-st.markdown(
-    '<div class="page-title">Giám sát thời gian thực</div>',
-    unsafe_allow_html=True,
-)
+from utils.render_header import render_page_header
+render_page_header("Giám sát thời gian thực")
 
 # ── Camera List ─────────────────────────────────────────────
 cams = []
@@ -100,7 +98,7 @@ with col_cam:
 with col_start:
     if not st.session_state["running"]:
         disabled = not class_id.strip() or camera_index is None
-        if st.button("▶ Bắt đầu phân tích", use_container_width=True, disabled=disabled, type="primary"):
+        if st.button("▷ Bắt đầu phân tích", use_container_width=True, disabled=disabled, type="primary"):
             res = safe_post(
                 f"{CAMERA_URL}/start",
                 params={"camera_index": camera_index, "class_id": class_id.strip()},
@@ -117,7 +115,7 @@ with col_start:
 
 with col_stop:
     if st.session_state["running"]:
-        if st.button("⏹ Dừng phân tích", use_container_width=True, type="secondary"):
+        if st.button("□ Dừng phân tích", use_container_width=True, type="secondary"):
             safe_post(f"{CAMERA_URL}/stop", timeout=5)
             st.session_state["running"] = False
             st.session_state["session_id"] = None
@@ -130,7 +128,6 @@ left_col, right_col = st.columns([2.5, 1.5])
 
 # Left panel — camera feed
 with left_col:
-    st.markdown('<div class="card-box">', unsafe_allow_html=True)
 
     # Section header with status
     is_running = st.session_state["running"]
@@ -192,9 +189,8 @@ with left_col:
             st.markdown(f"""
             <div class="capture-countdown">
                 <div class="countdown-header">
-                    <span class="countdown-icon">◉</span>
-                    <span class="countdown-label">Trích xuất khung hình tiếp theo</span>
-                    <span class="countdown-timer" id="countdown-sec">{max(0, int(30 - cycle_offset))}s</span>
+                    <span class="countdown-label">🔄 Đang trích xuất khung hình...</span>
+                    <span class="countdown-timer">Mỗi 30 giây</span>
                 </div>
                 <div class="countdown-track">
                     <div class="countdown-fill" id="countdown-bar"
@@ -205,14 +201,11 @@ with left_col:
             (function() {{
                 var startEpoch = {start_time};
                 var bar = document.getElementById('countdown-bar');
-                var label = document.getElementById('countdown-sec');
-                if (!bar || !label) return;
+                if (!bar) return;
                 function update() {{
                     var elapsed = (Date.now() / 1000 - startEpoch) % 30;
-                    var remain = Math.max(0, Math.ceil(30 - elapsed));
                     var pct = (elapsed / 30) * 100;
                     bar.style.width = pct + '%';
-                    label.textContent = remain + 's';
                 }}
                 update();
                 setInterval(update, 500);
@@ -227,11 +220,10 @@ with left_col:
         </div>
         """, unsafe_allow_html=True)
 
-    st.markdown("</div>", unsafe_allow_html=True)
+    # Left panel ends
 
 # Right panel — extracted frames
 with right_col:
-    st.markdown('<div class="right-card">', unsafe_allow_html=True)
 
     st.markdown("""
     <div class="section-header">
@@ -281,7 +273,7 @@ with right_col:
             st.switch_page("pages/session_analysis.py")
         st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown("</div>", unsafe_allow_html=True)
+    # Right panel ends
 
 # ── Auto Refresh ────────────────────────────────────────────
 # Refresh every 10s (not 1s!) — The MJPEG <img> stream updates itself

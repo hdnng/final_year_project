@@ -9,6 +9,9 @@ from jose import JWTError, jwt
 from core.config import settings
 from core.logger import get_logger
 from core.token_blacklist import TokenBlacklist
+from database.database import get_db
+from models.user import User
+from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
 security = HTTPBearer(auto_error=False)
@@ -33,7 +36,8 @@ def get_client_ip(request: Request) -> str:
 def get_current_user(
     request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
-) -> int:
+    db: Session = Depends(get_db),
+) -> User:
     """
     Authenticate the current user via JWT.
 
@@ -83,7 +87,15 @@ def get_current_user(
             )
 
         logger.debug(f"User authenticated: {user_id}")
-        return user_id
+        
+        user = db.query(User).filter(User.user_id == user_id).first()
+        if not user:
+             logger.warning(f"Unauthorized: user {user_id} not found in DB")
+             raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found",
+            )
+        return user
 
     except JWTError as exc:
         logger.warning(f"Unauthorized: JWT validation failed — {exc}")

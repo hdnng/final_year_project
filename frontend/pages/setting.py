@@ -8,6 +8,7 @@ from utils.auth_guard import require_auth
 from utils.hide_streamlit_sidebar import hide_sidebar
 from utils.http import init_session_state
 from utils.load_css import load_css
+from utils.render_header import render_page_header
 
 # ── Config ──────────────────────────────────────────────────
 st.set_page_config(layout="wide")
@@ -43,10 +44,7 @@ if st.session_state.get("update_success"):
     st.session_state.update_success = False
 
 # ── Header ──────────────────────────────────────────────────
-st.markdown(
-    '<div class="page-title">Cài đặt tài khoản</div>',
-    unsafe_allow_html=True,
-)
+render_page_header("Cài đặt tài khoản")
 
 # ── Account Info Card ───────────────────────────────────────
 with st.container():
@@ -59,7 +57,8 @@ with st.container():
     with col1:
         st.image("https://i.pravatar.cc/150", width=80)
     with col2:
-        st.markdown(f'<div class="profile-name">{full_name}</div>', unsafe_allow_html=True)
+        role_label = "Quản trị viên" if user.get("role") == "admin" else "Giáo viên"
+        st.markdown(f'<div class="profile-name">{full_name} <span style="font-size: 12px; font-weight: 400; background: #e6f7ff; color: #1890ff; padding: 2px 8px; border-radius: 4px; margin-left: 8px;">{role_label}</span></div>', unsafe_allow_html=True)
         st.markdown(f'<div class="profile-email">{email}</div>', unsafe_allow_html=True)
         st.button("Thay đổi ảnh")
         

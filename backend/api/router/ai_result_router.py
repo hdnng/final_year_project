@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from core.dependencies import get_current_user
+from models.user import User
 from database.database import get_db
 from schemas.ai_result import AIResultUpdate, AIResultUpdateResponse
 from service.frame_service import update_result_label
@@ -15,7 +16,7 @@ router = APIRouter(prefix="/ai-result", tags=["AI Result"])
 def update_ai_result(
     result_id: int,
     payload: AIResultUpdate,
-    user_id: int = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Apply a user-corrected label to an AI detection result."""

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from core.dependencies import get_current_user
 from core.logger import get_logger
 from database.database import get_db
+from models.user import User
 from schemas.common import MessageResponse
 from schemas.session import SessionDetailResponse, SessionListItem, SessionSummaryResponse
 from service.session_service import (
@@ -24,12 +25,13 @@ def get_sessions(
     skip: int = Query(0, ge=0, description="Number of sessions to skip"),
     limit: int = Query(20, ge=1, le=100, description="Max sessions to return"),
     search: str = Query("", description="Search by class name"),
-    user_id: int = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """List sessions with pagination and optional class search."""
     try:
-        return get_session_list(db, user_id, skip, limit, search or None)
+        user_id_filter = None if user.role == "admin" else user.user_id
+        return get_session_list(db, user_id_filter, skip, limit, search or None)
     except Exception as exc:
         logger.error(f"Error fetching sessions: {exc}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch sessions")
@@ -37,12 +39,13 @@ def get_sessions(
 
 @router.get("/summary", response_model=SessionSummaryResponse)
 def get_summary(
-    user_id: int = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Get dashboard summary: total sessions + sessions this month."""
     try:
-        return get_session_summary(db, user_id)
+        user_id_filter = None if user.role == "admin" else user.user_id
+        return get_session_summary(db, user_id_filter)
     except Exception as exc:
         logger.error(f"Error fetching summary: {exc}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch summary")
@@ -51,7 +54,7 @@ def get_summary(
 @router.get("/session/{session_id}", response_model=SessionDetailResponse)
 def get_session_detail_endpoint(
     session_id: int,
-    user_id: int = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Get full session detail with frames and statistics."""
@@ -67,12 +70,14 @@ def get_session_detail_endpoint(
 @router.delete("/session/{session_id}")
 def delete_session_endpoint(
     session_id: int,
-    user_id: int = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Delete a session and all related data (blocked if currently running)."""
     try:
-        return delete_session(db, session_id, user_id)
+        # For deletion, we still check ownership unless admin
+        user_id_check = None if user.role == "admin" else user.user_id
+        return delete_session(db, session_id, user_id_check)
     except HTTPException:
         raise
     except Exception as exc:

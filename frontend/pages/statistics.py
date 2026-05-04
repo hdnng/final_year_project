@@ -11,6 +11,7 @@ from utils.auth_guard import require_auth
 from utils.hide_streamlit_sidebar import hide_sidebar
 from utils.http import init_session_state
 from utils.load_css import load_css
+from utils.render_header import render_page_header
 
 # ── Config ──────────────────────────────────────────────────
 st.set_page_config(layout="wide", page_title="Thống kê")
@@ -30,10 +31,8 @@ client = st.session_state.client
 daily_data = get_daily_stats(client)
 
 if not daily_data:
-    st.markdown(
-        '<div class="page-title">Thống kê hệ thống</div>',
-        unsafe_allow_html=True,
-    )
+    # ── Header ──────────────────────────────────────────────────
+    render_page_header("Thống kê hệ thống")
     st.info("📊 Chưa có dữ liệu thống kê")
     st.stop()
 
@@ -46,10 +45,8 @@ seven_days_ago = datetime.now() - timedelta(days=7)
 df_7d = df[df["date"] >= seven_days_ago]
 
 if len(df_7d) == 0:
-    st.markdown(
-        '<div class="page-title">Thống kê hệ thống</div>',
-        unsafe_allow_html=True,
-    )
+    # ── Header ──────────────────────────────────────────────────
+    render_page_header("Thống kê hệ thống")
     st.info("📊 Chưa có dữ liệu trong 7 ngày gần đây")
     st.stop()
 
@@ -89,10 +86,7 @@ sleep_pct = (sleeping / total * 100) if total > 0 else 0
 focus_pct = focus_rate * 100 if isinstance(focus_rate, (int, float)) else 0
 
 # ── Header ──────────────────────────────────────────────────
-st.markdown(
-    '<div class="page-title">Thống kê hệ thống</div>',
-    unsafe_allow_html=True,
-)
+render_page_header("Thống kê hệ thống")
 
 # ── KPI Cards ───────────────────────────────────────────────
 col1, col2, col3, col4 = st.columns(4, gap="medium")
